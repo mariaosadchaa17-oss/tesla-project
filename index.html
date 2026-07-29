@@ -12,20 +12,12 @@
 </head>
 <body>
 
-<div id="pin-overlay" class="pin-overlay hidden">
-  <div>🔒</div>
-  <input type="password" id="pin-input" inputmode="numeric" maxlength="6" placeholder="PIN">
-  <button type="button" id="pin-submit-btn" class="shift-btn">Розблокувати</button>
-  <div id="pin-error" style="color:var(--tip);font-size:13px"></div>
-</div>
-
 <div class="app">
   <header class="header">
     <h1>Заробіток</h1>
     <div class="header-right">
       <span class="date" id="current-date"></span>
-      <button id="lock-btn" class="theme-toggle" type="button" aria-label="Заблокувати">🔒</button>
-      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Змінити тему">🌙</button>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Змінити тему">☀️</button>
     </div>
   </header>
 
@@ -184,11 +176,11 @@
     <h3>Графік за 7 днів і порівняння</h3>
     <div id="week-chart" class="bar-chart"></div>
     <div class="compare-row">
-      <span>Цей тиждень вс минулий</span>
+      <span>Цей тиждень порівняно з минулим</span>
       <span id="week-compare"></span>
     </div>
     <div class="compare-row">
-      <span>Цей місяць вс минулий</span>
+      <span>Цей місяць порівняно з минулим</span>
       <span id="month-compare"></span>
     </div>
   </section>
@@ -210,25 +202,28 @@
   </section>
 
   <section class="card">
-    <h3>Захист паролем</h3>
-    <p style="font-size:13px;color:var(--text-muted);margin-top:0">Легкий захист від чужих очей на телефоні, не справжній криптографічний захист.</p>
-    <form id="pin-setup-form" class="expense-form">
-      <input type="password" id="pin-setup-input" inputmode="numeric" maxlength="6" placeholder="Новий PIN (4-6 цифр)">
-      <button type="submit">Встановити PIN</button>
-    </form>
-    <button type="button" id="pin-remove-btn" class="cancel-edit-btn">Вимкнути захист</button>
-  </section>
-
-  <section class="card">
     <h3>Звіт і експорт</h3>
     <button id="export-pdf-btn" class="shift-btn" type="button" style="margin-right:8px">PDF-звіт</button>
     <button id="export-csv-btn" class="shift-btn" type="button">CSV всіх поїздок</button>
   </section>
 </div>
 
+<div id="pdf-report" class="pdf-report">
+  <h2>Звіт по заробітку</h2>
+  <p id="pdf-date"></p>
+  <p id="pdf-today"></p>
+  <p id="pdf-tips"></p>
+  <p id="pdf-week"></p>
+  <p id="pdf-month"></p>
+  <p id="pdf-expenses"></p>
+  <p id="pdf-commission"></p>
+  <p id="pdf-net"></p>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="app.js"></script>
 <script>
 document.getElementById('current-date').textContent =
