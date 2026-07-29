@@ -20,10 +20,7 @@
       <span class="charge-icon">⚡</span>
       <span class="charge-total"><span id="today-total">0</span> грн</span>
     </div>
-    <div class="charge-track">
-      <div class="charge-fill" id="charge-fill"></div>
-    </div>
-    <div class="charge-label" id="charge-label">0% від цілі</div>
+    <div class="charge-label">Зароблено сьогодні</div>
   </section>
 
   <section class="stats-row">
@@ -53,14 +50,6 @@
     <h2>Сьогодні</h2>
     <ul id="history-list" class="history-list"></ul>
   </section>
-
-  <details class="settings">
-    <summary>Ціль на день</summary>
-    <form id="goal-form" class="goal-form">
-      <input type="number" id="goal-input" min="0" step="100">
-      <button type="submit">Зберегти ціль</button>
-    </form>
-  </details>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
