@@ -165,6 +165,47 @@
       <div id="heatmap"></div>
     </div>
 
+    <!-- ФОП — перенесено вище вибірки -->
+    <div class="card fop-card" id="fop-card">
+      <div class="fop-header">
+        <span class="fop-icon">📅</span>
+        <h3 style="margin:0;">ФОП 2 група — податки</h3>
+      </div>
+      <div id="fop-status" class="fop-status"></div>
+
+      <!-- Суми актуальні на 2026 рік, нередаговані -->
+      <div class="fop-taxes">
+        <div class="fop-tax-row">
+          <div>
+            <div>Єдиний податок</div>
+            <div class="fop-period">до 20 числа кожного місяця</div>
+          </div>
+          <span class="fop-fixed-amount">1 729,40 грн</span>
+        </div>
+        <div class="fop-tax-row">
+          <div>
+            <div>Військовий збір</div>
+            <div class="fop-period">до 20 числа кожного місяця</div>
+          </div>
+          <span class="fop-fixed-amount">864,70 грн</span>
+        </div>
+        <div class="fop-tax-row">
+          <div>
+            <div>ЄСВ</div>
+            <div class="fop-period">щоквартально, до 20-го після кварталу</div>
+          </div>
+          <span class="fop-fixed-amount">1 902,34 грн</span>
+        </div>
+      </div>
+
+      <div class="fop-total-row">
+        <span>Щомісяць (єп + вз):</span>
+        <span class="card-value negative">2 594,10 грн</span>
+      </div>
+
+      <button id="fop-paid-btn" class="fop-paid-btn">✅ Позначити як сплачено</button>
+    </div>
+
     <div class="card">
       <h3>Вибірка за датами</h3>
       <div class="card-row">
@@ -178,41 +219,6 @@
       <div class="card-row">
         <span>Поїздок:</span>
         <span id="range-count" class="card-value">0</span>
-      </div>
-    </div>
-
-    <div class="card fop-card" id="fop-card">
-      <div class="fop-header">
-        <span class="fop-icon">📅</span>
-        <h3 style="margin:0;">ФОП 2 група — податки</h3>
-      </div>
-      <div id="fop-status" class="fop-status"></div>
-      <div class="fop-taxes">
-        <div class="fop-tax-row">
-          <span>Єдиний податок <span class="fop-period">(1–20 числа)</span></span>
-          <div class="fop-amount-row">
-            <input type="number" id="fop-ep" class="fop-input" value="1729" />
-            <span class="fop-grn">грн</span>
-          </div>
-        </div>
-        <div class="fop-tax-row">
-          <span>Військовий збір <span class="fop-period">(1–20 числа)</span></span>
-          <div class="fop-amount-row">
-            <input type="number" id="fop-vz" class="fop-input" value="865" />
-            <span class="fop-grn">грн</span>
-          </div>
-        </div>
-        <div class="fop-tax-row">
-          <span>ЄСВ <span class="fop-period">(щоквартально, до 20-го)</span></span>
-          <div class="fop-amount-row">
-            <input type="number" id="fop-esv" class="fop-input" value="1902" />
-            <span class="fop-grn">грн</span>
-          </div>
-        </div>
-      </div>
-      <div class="fop-total-row">
-        <span>Щомісяць (єп + вз):</span>
-        <span id="fop-monthly-total" class="card-value negative">2 594 грн</span>
       </div>
     </div>
 
@@ -244,49 +250,79 @@
     document.getElementById('zoom-out').addEventListener('click', () => { if (zoomIdx > 0) { zoomIdx--; applyZoom(); } });
     applyZoom();
 
+    // ── ФОП нагадування ──
+    // Ключ в localStorage: 'fop-paid-YYYY-MM' = '1' значить сплачено
+    function fopMonthKey() {
+      const d = new Date();
+      return 'fop-paid-' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    }
+
     function renderFop() {
-      const day = new Date().getDate();
+      const day   = new Date().getDate();
       const month = new Date().getMonth() + 1;
-      const year = new Date().getFullYear();
-      const ep  = Number(document.getElementById('fop-ep').value)  || 0;
-      const vz  = Number(document.getElementById('fop-vz').value)  || 0;
-      const esv = Number(document.getElementById('fop-esv').value) || 0;
-      document.getElementById('fop-monthly-total').textContent = (ep + vz).toLocaleString('uk-UA') + ' грн';
-      const statusEl = document.getElementById('fop-status');
+      const year  = new Date().getFullYear();
+      const isPaid = localStorage.getItem(fopMonthKey()) === '1';
+
+      const statusEl  = document.getElementById('fop-status');
+      const paidBtn   = document.getElementById('fop-paid-btn');
+
       const fromStr = new Date(year, month - 1, 1).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
       const toStr   = new Date(year, month - 1, 20).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+
       const esvMonths = [4, 7, 10, 1];
       const isEsvMonth = esvMonths.includes(month);
-      if (day <= 20) {
-        const daysLeft = 20 - day;
-        let html = `<div class="fop-alert fop-warn">
-          ⚠️ Сплата єп + вз: з ${fromStr} до ${toStr}<br>
-          Залишилось <strong>${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дні' : 'днів'}</strong>
-        </div>`;
-        if (isEsvMonth) {
-          html += `<div class="fop-alert fop-warn" style="margin-top:8px;">
-            ⚠️ Цей місяць також сплачується ЄСВ — ${esv.toLocaleString('uk-UA')} грн
-          </div>`;
-        }
-        statusEl.innerHTML = html;
-      } else {
+
+      if (isPaid) {
+        // Позначено як сплачено
         const nextMonth = month === 12 ? 1 : month + 1;
         const nextYear  = month === 12 ? year + 1 : year;
-        const nextFrom = new Date(nextYear, nextMonth - 1, 1).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
-        const nextTo   = new Date(nextYear, nextMonth - 1, 20).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+        const nextFrom  = new Date(nextYear, nextMonth - 1, 1).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+        const nextTo    = new Date(nextYear, nextMonth - 1, 20).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
         statusEl.innerHTML = `<div class="fop-alert fop-ok">
           ✅ Цього місяця сплачено<br>
           Наступний період: з ${nextFrom} до ${nextTo}
         </div>`;
+        paidBtn.textContent = '↩ Скасувати';
+        paidBtn.classList.add('fop-paid-btn--undo');
+      } else if (day <= 20) {
+        // Залишається по даті
+        const daysLeft = 20 - day;
+        let html = `<div class="fop-alert fop-warn">
+          ⚠️ Сплата: з ${fromStr} до ${toStr} — позалишилось <strong>${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дні' : 'днів'}</strong>
+        </div>`;
+        if (isEsvMonth) {
+          html += `<div class="fop-alert fop-warn" style="margin-top:8px;">
+            ⚠️ Цей місяць також сплачується ЄСВ — 1 902,34 грн
+          </div>`;
+        }
+        statusEl.innerHTML = html;
+        paidBtn.textContent = '✅ Позначити як сплачено';
+        paidBtn.classList.remove('fop-paid-btn--undo');
+      } else {
+        // Після 20-го числа — сплата прострочена
+        const nextMonth = month === 12 ? 1 : month + 1;
+        const nextYear  = month === 12 ? year + 1 : year;
+        const nextFrom  = new Date(nextYear, nextMonth - 1, 1).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+        const nextTo    = new Date(nextYear, nextMonth - 1, 20).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+        statusEl.innerHTML = `<div class="fop-alert fop-ok">
+          ✅ Цього місяця сплачено<br>
+          Наступний період: з ${nextFrom} до ${nextTo}
+        </div>`;
+        paidBtn.textContent = '↩ Скасувати';
+        paidBtn.classList.add('fop-paid-btn--undo');
       }
     }
 
-    ['fop-ep','fop-vz','fop-esv'].forEach(id => {
-      const el = document.getElementById(id);
-      const saved = localStorage.getItem(id);
-      if (saved) el.value = saved;
-      el.addEventListener('input', () => { localStorage.setItem(id, el.value); renderFop(); });
+    document.getElementById('fop-paid-btn').addEventListener('click', () => {
+      const key = fopMonthKey();
+      if (localStorage.getItem(key) === '1') {
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, '1');
+      }
+      renderFop();
     });
+
     renderFop();
   </script>
 </body>
