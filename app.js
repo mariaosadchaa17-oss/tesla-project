@@ -50,6 +50,7 @@ const shiftRate = document.getElementById('shift-rate');
 
 const teslaKmEl = document.getElementById('tesla-km');
 const teslaSavingsEl = document.getElementById('tesla-savings');
+const saveKmBtn = document.getElementById('save-km-btn');
 
 const heatmapEl = document.getElementById('heatmap');
 const weekCompareEl = document.getElementById('week-compare');
@@ -61,7 +62,6 @@ const rangeTotalEl = document.getElementById('range-total');
 const rangeCountEl = document.getElementById('range-count');
 
 const exportPdfBtn = document.getElementById('export-pdf-btn');
-const exportCsvBtn = document.getElementById('export-csv-btn');
 const themeToggleBtn = document.getElementById('theme-toggle');
 const micBtn = document.getElementById('mic-btn');
 
@@ -73,6 +73,10 @@ let shiftInterval = null;
 let commissionPercent = Number(localStorage.getItem('uklonCommission')) || 15;
 commissionInput.value = commissionPercent;
 
+// ── Логіка дат ──────────────────────────────────────────────
+// Робочий день починається о 04:00 і закінчується о 03:59 наступного дня.
+// Тобто поїздки між 00:00–03:59 відносяться до "вчорашнього" дня.
+// Це дозволяє не розривати нічну зміну на два дні.
 function dateKeyOf(date) {
   const d = new Date(date);
   if (d.getHours() < 4) {
@@ -86,11 +90,6 @@ function dateKeyOf(date) {
 
 function todayKey() {
   return dateKeyOf(new Date());
-}
-
-function monthKey() {
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
 
 function startOfWeekKey() {
@@ -118,6 +117,26 @@ function startOfMonthFromKey(key) {
   return dateKeyOf(d);
 }
 
+// ── Авто-оновлення о 04:00 ──────────────────────────────────
+// Якщо сторінка відкрита, о 04:00 "сьогодні" автоматично зміниться
+// і весь render() перерахується з новим dateKey.
+function scheduleNextDayReset() {
+  const now = new Date();
+  // Наступне 04:00
+  const next = new Date(now);
+  if (now.getHours() >= 4) {
+    next.setDate(next.getDate() + 1);
+  }
+  next.setHours(4, 0, 0, 0);
+  const msUntil = next.getTime() - now.getTime();
+  setTimeout(() => {
+    render(); // перерахувати з новим todayKey
+    scheduleNextDayReset(); // запланувати наступний
+  }, msUntil);
+}
+scheduleNextDayReset();
+
+// ── Форма поїздки ────────────────────────────────────────────
 function getPaymentValue() {
   const checked = form.querySelector('input[name="payment"]:checked');
   return checked ? checked.value : 'cash';
@@ -132,18 +151,18 @@ form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const amount = Number(amountInput.value) || 0;
   const tip = Number(tipInput.value) || 0;
-  const km = Number(kmInput.value) || 0;
   if (amount <= 0 && tip <= 0) return;
   const paymentMethod = getPaymentValue();
 
+  // dateKey НЕ беремо від клієнта — він перераховується з серверного createdAt
+  // при onSnapshot. Тут передаємо тимчасовий dateKey як підстраховку.
   const tripData = {
     amount,
     tip,
     total: amount + tip,
-    km,
     paymentMethod,
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    dateKey: dateKeyOf(new Date()),
+    dateKey: dateKeyOf(new Date()), // перезапишеться при onSnapshot через серверний час
   };
 
   if (editingId) {
@@ -155,7 +174,6 @@ form.addEventListener('submit', async (e) => {
 
   amountInput.value = '';
   tipInput.value = '';
-  kmInput.value = '';
   amountInput.focus();
 });
 
@@ -165,7 +183,6 @@ function startEditing(t) {
   editingId = t.id;
   amountInput.value = t.amount;
   tipInput.value = t.tip;
-  kmInput.value = t.km || '';
   setPaymentValue(t.paymentMethod || 'cash');
   saveBtn.textContent = 'Зберегти зміни';
   cancelEditBtn.style.display = 'block';
@@ -174,8 +191,31 @@ function startEditing(t) {
 
 function stopEditing() {
   editingId = null;
-  saveBtn.textContent = 'Зберегти';
+  saveBtn.innerHTML = '💾 Зберегти поїздку';
   cancelEditBtn.style.display = 'none';
+}
+
+// ── Кнопка збереження пробігу ────────────────────────────────
+// Пробіг зберігається як окремий запис у trips з amount=0, tip=0
+// щоб не псувати статистику, але додавати кілометри до загального пробігу.
+if (saveKmBtn) {
+  saveKmBtn.addEventListener('click', async () => {
+    const km = Number(kmInput.value) || 0;
+    if (km <= 0) return;
+    await tripsRef.add({
+      amount: 0,
+      tip: 0,
+      total: 0,
+      km,
+      kmOnly: true, // маркер: це запис тільки пробігу, не поїздка
+      paymentMethod: 'cash',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      dateKey: dateKeyOf(new Date()),
+    });
+    kmInput.value = '';
+    saveKmBtn.textContent = '✓';
+    setTimeout(() => { saveKmBtn.textContent = 'Зберегти'; }, 1500);
+  });
 }
 
 commissionInput.addEventListener('input', () => {
@@ -190,6 +230,7 @@ document.querySelectorAll('.quick-tip-btn').forEach((btn) => {
   });
 });
 
+// ── Голосовий ввід ───────────────────────────────────────────
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (SpeechRecognitionCtor && micBtn) {
   const recognition = new SpeechRecognitionCtor();
@@ -207,10 +248,15 @@ if (SpeechRecognitionCtor && micBtn) {
   micBtn.style.display = 'none';
 }
 
+// ── Firebase onSnapshot ──────────────────────────────────────
+// dateKey перераховується з серверного createdAt — це гарантує
+// що запис завжди потрапляє до правильного дня незалежно від
+// часового пояса клієнта чи затримки між кліком і serverTimestamp.
 tripsRef.orderBy('createdAt', 'desc').limit(1000).onSnapshot((snapshot) => {
   allTrips = snapshot.docs.map((doc) => {
     const data = doc.data();
     if (data.createdAt) {
+      // Завжди перераховуємо dateKey від серверного часу
       data.dateKey = dateKeyOf(data.createdAt.toDate());
     }
     return { id: doc.id, ...data };
@@ -222,7 +268,7 @@ expensesRef.orderBy('createdAt', 'desc').limit(500).onSnapshot((snapshot) => {
   allExpenses = snapshot.docs.map((doc) => {
     const data = doc.data();
     if (data.createdAt) {
-        data.dateKey = dateKeyOf(data.createdAt.toDate());
+      data.dateKey = dateKeyOf(data.createdAt.toDate());
     }
     return { id: doc.id, ...data };
   });
@@ -250,13 +296,14 @@ expenseForm.addEventListener('submit', async (e) => {
   expenseAmount.value = '';
 });
 
+// ── Зміна ────────────────────────────────────────────────────
 function sumToday() {
   const today = todayKey();
-  return allTrips.filter((t) => t.dateKey === today).reduce((s, t) => s + t.total, 0);
+  return allTrips.filter((t) => t.dateKey === today && !t.kmOnly).reduce((s, t) => s + t.total, 0);
 }
 
 function sumRange(from, to) {
-  return allTrips.filter((t) => t.dateKey >= from && t.dateKey <= to).reduce((s, t) => s + t.total, 0);
+  return allTrips.filter((t) => !t.kmOnly && t.dateKey >= from && t.dateKey <= to).reduce((s, t) => s + t.total, 0);
 }
 
 function formatDuration(ms) {
@@ -324,14 +371,16 @@ async function restoreShift() {
 }
 restoreShift();
 
+// ── Render ───────────────────────────────────────────────────
 function render() {
   const today = todayKey();
   const weekStart = startOfWeekKey();
   const monthStart = startOfMonthKey();
 
-  const todayTrips = allTrips.filter((t) => t.dateKey === today);
-  const weekTrips = allTrips.filter((t) => t.dateKey >= weekStart);
-  const monthTrips = allTrips.filter((t) => t.dateKey >= monthStart);
+  // Фільтруємо: kmOnly записи не рахуємо як поїздки
+  const todayTrips = allTrips.filter((t) => t.dateKey === today && !t.kmOnly);
+  const weekTrips = allTrips.filter((t) => t.dateKey >= weekStart && !t.kmOnly);
+  const monthTrips = allTrips.filter((t) => t.dateKey >= monthStart && !t.kmOnly);
   const todayExpensesList = allExpenses.filter((x) => x.dateKey === today);
 
   const todayTotal = todayTrips.reduce((s, t) => s + t.total, 0);
@@ -347,9 +396,10 @@ function render() {
   monthTotalEl.textContent = monthTrips.reduce((s, t) => s + t.total, 0).toFixed(0);
 
   todayExpensesEl.textContent = todayExpensesTotal.toFixed(0) + ' грн';
-  todayCommissionEl.textContent = todayCommission.toFixed(0) + ' грн';
+  todayCommissionEl.textContent = '= ' + todayCommission.toFixed(0) + ' грн';
   todayNetEl.textContent = (todayTotal - todayCommission - todayExpensesTotal).toFixed(0) + ' грн';
 
+  // Список поїздок — тільки реальні поїздки (не kmOnly)
   historyList.innerHTML = '';
   todayTrips.forEach((t) => {
     const li = document.createElement('li');
@@ -397,7 +447,9 @@ function render() {
   updateShiftUI();
 }
 
+// ── Tesla / пробіг ───────────────────────────────────────────
 function renderTesla() {
+  // Рахуємо km з усіх записів (і поїздок, і kmOnly)
   const totalKm = allTrips.reduce((s, t) => s + (t.km || 0), 0);
   const gasCost = (totalKm / 100) * GAS_CONSUMPTION_PER_100KM * GAS_PRICE_PER_LITER;
   const evCost = (totalKm / 100) * EV_CONSUMPTION_PER_100KM * EV_PRICE_PER_KWH;
@@ -406,26 +458,25 @@ function renderTesla() {
   teslaSavingsEl.textContent = savings.toFixed(0) + ' грн';
 }
 
+// ── Heatmap ──────────────────────────────────────────────────
 const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
-// Прибрали "Ніч" (0-5 год), залишили: Ранок(6-11), День(12-17), Вечір(18-23)
 const BUCKET_LABELS = ['Ранок', 'День', 'Вечір'];
 
 function getTimeBucket(hour) {
-  if (hour >= 6 && hour < 12) return 0;  // Ранок
-  if (hour >= 12 && hour < 18) return 1; // День
-  if (hour >= 18) return 2;              // Вечір
-  return null; // Ніч (0-5) — не показуємо
+  if (hour >= 6 && hour < 12) return 0;
+  if (hour >= 12 && hour < 18) return 1;
+  if (hour >= 18) return 2;
+  return null;
 }
 
 function renderHeatmap() {
   const grid = Array.from({ length: 7 }, () => [0, 0, 0]);
   allTrips.forEach((t) => {
-    if (!t.createdAt) return;
+    if (!t.createdAt || t.kmOnly) return;
     const d = t.createdAt.toDate();
     let dow = d.getDay();
     dow = dow === 0 ? 6 : dow - 1;
     const hour = d.getHours();
-    // Поїздки між 0-5 відносимо до попереднього дня для dateKey, але в heatmap не показуємо
     const bucket = getTimeBucket(hour);
     if (bucket === null) return;
     grid[dow][bucket] += t.total;
@@ -443,7 +494,6 @@ function renderHeatmap() {
     html += `<div class="heatmap-cell heatmap-label">${DOW_LABELS[i]}</div>`;
     row.forEach((v) => {
       const opacity = max > 0 ? (0.15 + 0.85 * (v / max)).toFixed(2) : 0.1;
-      // Завжди білий текст у заповнених комірках
       const textColor = v > 0 ? '#ffffff' : 'var(--text-muted)';
       html += `<div class="heatmap-cell" style="background:rgba(79,131,247,${opacity}); color: ${textColor}" title="${v.toFixed(0)} грн">${v > 0 ? Math.round(v) : ''}</div>`;
     });
@@ -452,6 +502,7 @@ function renderHeatmap() {
   heatmapEl.innerHTML = html;
 }
 
+// ── Range ────────────────────────────────────────────────────
 function renderRange() {
   const from = rangeFrom.value;
   const to = rangeTo.value;
@@ -461,6 +512,7 @@ function renderRange() {
     return;
   }
   const filtered = allTrips.filter((t) => {
+    if (t.kmOnly) return false;
     if (from && t.dateKey < from) return false;
     if (to && t.dateKey > to) return false;
     return true;
@@ -472,6 +524,7 @@ function renderRange() {
 rangeFrom.addEventListener('change', renderRange);
 rangeTo.addEventListener('change', renderRange);
 
+// ── Compare badges ───────────────────────────────────────────
 function compareBadge(current, previous) {
   if (previous === 0) {
     return current > 0 ? '<span class="badge up">▲</span>' : '<span class="badge">—</span>';
@@ -501,6 +554,7 @@ function renderCompare() {
   monthCompareEl.innerHTML = compareBadge(curMonthTotal, prevMonthTotal);
 }
 
+// ── PDF ──────────────────────────────────────────────────────
 exportPdfBtn.addEventListener('click', async () => {
   const oldText = exportPdfBtn.textContent;
   exportPdfBtn.textContent = 'Генерація...';
@@ -510,21 +564,6 @@ exportPdfBtn.addEventListener('click', async () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-    // Завантажуємо шрифт що підтримує кирилицю
-    const fontUrl = 'https://fonts.gstatic.com/s/notosans/v36/o-0bIpQlx3QUlC5A4PNjXhFVZNyB1Wk.woff2';
-    
-    // Використовуємо вбудований підхід: малюємо текст через canvas для уникнення проблем з кодуванням
-    // Замість кастомних шрифтів — генеруємо PDF з латиницею + транслітерацією ключових слів
-    // та UTF-8 через правильний підхід з html2canvas або простий текстовий PDF
-
-    // Простий та надійний підхід: UTF-16 через спеціальний encode
-    function safeText(text) {
-      // jsPDF з базовим latin шрифтом не підтримує кирилицю
-      // Повертаємо текст як є — якщо шрифт завантажено, спрацює
-      return text;
-    }
-
-    // Завантажуємо NotoSans з підтримкою кирилиці
     const resp = await fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf');
     if (!resp.ok) throw new Error('Font load failed');
     const fontBuf = await resp.arrayBuffer();
@@ -538,13 +577,10 @@ exportPdfBtn.addEventListener('click', async () => {
 
     doc.setFontSize(18);
     doc.text('Звіт по заробітку', 14, 20);
-
     doc.setFontSize(10);
     doc.setTextColor(120, 120, 120);
     doc.text('Дата: ' + new Date().toLocaleDateString('uk-UA'), 14, 30);
-
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(12);
 
     let y = 45;
     const line = (label, value) => {
@@ -556,7 +592,6 @@ exportPdfBtn.addEventListener('click', async () => {
       doc.text(String(value), 100, y);
       y += 9;
     };
-
     const separator = () => {
       doc.setDrawColor(220, 220, 220);
       doc.line(14, y, 196, y);
@@ -576,19 +611,18 @@ exportPdfBtn.addEventListener('click', async () => {
     doc.save('zvit-' + todayKey() + '.pdf');
   } catch (error) {
     console.error('PDF generation error:', error);
-    // Fallback: генеруємо текстовий файл з правильним кодуванням
     const lines = [
       'Звіт по заробітку',
-      'Дата формування: ' + new Date().toLocaleDateString('uk-UA'),
+      'Дата: ' + new Date().toLocaleDateString('uk-UA'),
       '',
       'Сьогодні: ' + todayTotalEl.textContent + ' грн (' + todayCountEl.textContent + ' поїздок)',
-      'Чайові сьогодні: ' + todayTipsEl.textContent + ' грн',
-      'Витрати сьогодні: ' + todayExpensesEl.textContent,
+      'Чайові: ' + todayTipsEl.textContent + ' грн',
+      'Витрати: ' + todayExpensesEl.textContent,
       'Комісія Uklon: ' + todayCommissionEl.textContent,
-      'Чистими сьогодні: ' + todayNetEl.textContent,
+      'Чистими: ' + todayNetEl.textContent,
       '',
-      'Загалом за тиждень: ' + weekTotalEl.textContent + ' грн',
-      'Загалом за місяць: ' + monthTotalEl.textContent + ' грн',
+      'Тиждень: ' + weekTotalEl.textContent + ' грн',
+      'Місяць: ' + monthTotalEl.textContent + ' грн',
     ].join('\n');
     const blob = new Blob(['\uFEFF' + lines], { type: 'text/plain;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -603,24 +637,7 @@ exportPdfBtn.addEventListener('click', async () => {
   }
 });
 
-exportCsvBtn.addEventListener('click', () => {
-  const header = 'Дата,Час,Сума,Чайові,Разом,Пробіг,Оплата\n';
-  const rows = allTrips.map((t) => {
-    const d = t.createdAt ? t.createdAt.toDate() : null;
-    const date = d ? dateKeyOf(d) : t.dateKey;
-    const time = d ? d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }) : '';
-    const pay = t.paymentMethod === 'card' ? 'картка' : 'готівка';
-    return [date, time, t.amount, t.tip, t.total, t.km || 0, pay].join(',');
-  }).join('\n');
-  const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `poizdky-${todayKey()}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-});
-
+// ── Тема ─────────────────────────────────────────────────────
 function getDefaultTheme() {
   const hour = new Date().getHours();
   return (hour >= 7 && hour < 19) ? 'light' : 'dark';
