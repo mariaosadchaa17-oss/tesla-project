@@ -92,7 +92,10 @@ let commissionPercent = Number(localStorage.getItem('uklonCommission')) || 15;
 commissionInput.value = commissionPercent;
 
 function dateKeyOf(date) {
-  return date.toISOString().slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function todayKey() {
@@ -224,7 +227,7 @@ function checkLock() {
 }
 checkLock();
 
-pinSubmitBtn.addEventListener('click', () => {
+function submitPin() {
   if (pinInput.value && pinInput.value === localStorage.getItem('appPin')) {
     sessionStorage.setItem('unlocked', '1');
     pinInput.value = '';
@@ -233,6 +236,11 @@ pinSubmitBtn.addEventListener('click', () => {
   } else {
     pinError.textContent = 'Невірний PIN';
   }
+}
+
+pinSubmitBtn.addEventListener('click', submitPin);
+pinInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitPin();
 });
 
 lockBtn.addEventListener('click', () => {
@@ -586,25 +594,59 @@ function renderCompare() {
   monthCompareEl.innerHTML = compareBadge(curMonth, prevMonth);
 }
 
-exportPdfBtn.addEventListener('click', () => {
-  const doc = new window.jspdf.jsPDF();
-  doc.setFontSize(16);
-  doc.text('Звіт по заробітку', 14, 18);
-  doc.setFontSize(11);
-  let y = 30;
-  const line = (label, value) => {
-    doc.text(`${label}: ${value}`, 14, y);
-    y += 8;
-  };
-  line('Дата формування', new Date().toLocaleDateString('uk-UA'));
-  line('Сьогодні', todayTotalEl.textContent + ' грн (' + todayCountEl.textContent + ' поїздок)');
-  line('Чайові сьогодні', todayTipsEl.textContent + ' грн');
-  line('За тиждень', weekTotalEl.textContent + ' грн');
-  line('За місяць', monthTotalEl.textContent + ' грн');
-  line('Витрати сьогодні', todayExpensesEl.textContent);
-  line('Комісія Uklon сьогодні', todayCommissionEl.textContent);
-  line('Чистими сьогодні', todayNetEl.textContent);
-  doc.save('zvit-' + todayKey() + '.pdf');
+exportPdfBtn.addEventListener('click', async () => {
+  const oldText = exportPdfBtn.textContent;
+  exportPdfBtn.textContent = 'Генерація PDF...';
+  exportPdfBtn.disabled = true;
+
+  try {
+    const doc = new window.jspdf.jsPDF();
+
+    // Загружаем шрифт Roboto с поддержкой кириллицы
+    const fontUrl = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/roboto/static/Roboto-Regular.ttf';
+    const response = await fetch(fontUrl);
+    const blob = await response.blob();
+
+    // Конвертируем шрифт в Base64
+    const base64Font = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    // Регистрируем шрифт в jsPDF
+    doc.addFileToVFS('Roboto-Regular.ttf', base64Font);
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+    doc.setFont('Roboto');
+
+    // Формируем PDF
+    doc.setFontSize(16);
+    doc.text('Звіт по заробітку', 14, 18);
+    doc.setFontSize(11);
+    let y = 30;
+
+    const line = (label, value) => {
+      doc.text(`${label}: ${value}`, 14, y);
+      y += 8;
+    };
+
+    line('Дата формування', new Date().toLocaleDateString('uk-UA'));
+    line('Сьогодні', todayTotalEl.textContent + ' грн (' + todayCountEl.textContent + ' поїздок)');
+    line('Чайові сьогодні', todayTipsEl.textContent + ' грн');
+    line('За тиждень', weekTotalEl.textContent + ' грн');
+    line('За місяць', monthTotalEl.textContent + ' грн');
+    line('Витрати сьогодні', todayExpensesEl.textContent);
+    line('Комісія Uklon сьогодні', todayCommissionEl.textContent);
+    line('Чистими сьогодні', todayNetEl.textContent);
+
+    doc.save('zvit-' + todayKey() + '.pdf');
+  } catch (error) {
+    alert('Помилка при формуванні PDF: ' + error.message);
+  } finally {
+    exportPdfBtn.textContent = oldText;
+    exportPdfBtn.disabled = false;
+  }
 });
 
 exportCsvBtn.addEventListener('click', () => {
@@ -612,15 +654,15 @@ exportCsvBtn.addEventListener('click', () => {
   const rows = allTrips.map((t) => {
     const d = t.createdAt ? t.createdAt.toDate() : null;
     const date = d ? dateKeyOf(d) : t.dateKey;
-    const time = d ? d.toLocaleTimeString('uk-UA') : '';
+    const time = d ? d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }) : '';
     const pay = t.paymentMethod === 'card' ? 'картка' : 'готівка';
     return [date, time, t.amount, t.tip, t.total, t.km || 0, pay].join(',');
   }).join('\n');
-  const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'poizdky.csv';
+  a.download = `poizdky-${todayKey()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 });
