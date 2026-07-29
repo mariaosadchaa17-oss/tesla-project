@@ -152,6 +152,7 @@
           <div class="km-input-group">
             <input type="number" id="km" placeholder="0" pattern="[0-9]*" inputmode="decimal" class="km-input" />
             <button type="button" id="save-km-btn" class="km-save-btn">Зберегти</button>
+            <button type="button" id="clear-km-btn" class="km-clear-btn" title="Очистити пробіг">×</button>
           </div>
         </div>
       </div>
@@ -167,6 +168,7 @@
         <span class="fop-icon">📅</span>
         <h3 style="margin:0;">ФОП 2 група — податки</h3>
       </div>
+      <!-- Плашка статусу: порожня/сплачено -->
       <div id="fop-status" class="fop-status"></div>
       <div class="fop-taxes">
         <div class="fop-tax-row">
@@ -195,7 +197,11 @@
         <span>Щомісяць (єп + вз):</span>
         <span class="card-value negative">2 594,10 грн</span>
       </div>
-      <button id="fop-paid-btn" class="fop-paid-btn">✅ Позначити як сплачено</button>
+      <!-- Дві окремі кнопки: Сплачено / Не сплачено -->
+      <div class="fop-btn-row">
+        <button id="fop-btn-paid" class="fop-action-btn fop-action-paid">✅ Сплачено</button>
+        <button id="fop-btn-unpaid" class="fop-action-btn fop-action-unpaid">❌ Не сплачено</button>
+      </div>
     </div>
 
     <div class="card">
@@ -221,12 +227,15 @@
 
   <script src="app.js"></script>
   <script>
+    // ── Дата в заголовку ──
     const dateEl = document.getElementById('current-date');
     if (dateEl) {
       dateEl.textContent = new Date().toLocaleDateString('uk-UA', {
         weekday: 'long', day: 'numeric', month: 'long'
       });
     }
+
+    // ── Зум ──
     const ZOOM_STEPS = [70, 80, 90, 100, 110, 120, 130, 150];
     let zoomIdx = ZOOM_STEPS.indexOf(Number(localStorage.getItem('appZoom')) || 100);
     if (zoomIdx < 0) zoomIdx = 3;
@@ -242,51 +251,63 @@
     document.getElementById('zoom-out').addEventListener('click', () => { if (zoomIdx > 0) { zoomIdx--; applyZoom(); } });
     applyZoom();
 
+    // ── ФОП ──
     function fopMonthKey() {
       const d = new Date();
       return 'fop-paid-' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
     }
+
     function renderFop() {
-      const day   = new Date().getDate();
-      const month = new Date().getMonth() + 1;
-      const year  = new Date().getFullYear();
-      const isPaid = localStorage.getItem(fopMonthKey()) === '1';
-      const statusEl = document.getElementById('fop-status');
-      const paidBtn  = document.getElementById('fop-paid-btn');
-      const fromStr = new Date(year, month - 1, 1).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
-      const toStr   = new Date(year, month - 1, 20).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
-      const esvMonths = [4, 7, 10, 1];
+      const day        = new Date().getDate();
+      const month      = new Date().getMonth() + 1;
+      const year       = new Date().getFullYear();
+      const isPaid     = localStorage.getItem(fopMonthKey()) === '1';
+      const statusEl   = document.getElementById('fop-status');
+      const btnPaid    = document.getElementById('fop-btn-paid');
+      const btnUnpaid  = document.getElementById('fop-btn-unpaid');
+
+      const toStr = new Date(year, month - 1, 20).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+      const esvMonths  = [4, 7, 10, 1];
       const isEsvMonth = esvMonths.includes(month);
+
       if (isPaid) {
+        // Плашка: зелена
         const nextMonth = month === 12 ? 1 : month + 1;
         const nextYear  = month === 12 ? year + 1 : year;
-        const nextFrom  = new Date(nextYear, nextMonth - 1, 1).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
         const nextTo    = new Date(nextYear, nextMonth - 1, 20).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
-        statusEl.innerHTML = `<div class="fop-alert fop-ok">✅ Цього місяця сплачено<br>Наступний період: з ${nextFrom} до ${nextTo}</div>`;
-        paidBtn.textContent = '↩ Скасувати';
-        paidBtn.classList.add('fop-paid-btn--undo');
-      } else if (day <= 20) {
-        const daysLeft = 20 - day;
-        let html = `<div class="fop-alert fop-warn">⚠️ Сплата: з ${fromStr} до ${toStr} — позалишилось <strong>${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дні' : 'днів'}</strong></div>`;
-        if (isEsvMonth) html += `<div class="fop-alert fop-warn" style="margin-top:8px;">⚠️ Цей місяць також сплачується ЄСВ — 1 902,34 грн</div>`;
+        let html = `<div class="fop-alert fop-ok">✅ Цього місяця сплачено. Наступний дедлайн: до ${nextTo}</div>`;
         statusEl.innerHTML = html;
-        paidBtn.textContent = '✅ Позначити як сплачено';
-        paidBtn.classList.remove('fop-paid-btn--undo');
+        // Активна кнопка — Не сплачено
+        btnPaid.classList.remove('fop-action-active');
+        btnUnpaid.classList.add('fop-action-active');
       } else {
-        const nextMonth = month === 12 ? 1 : month + 1;
-        const nextYear  = month === 12 ? year + 1 : year;
-        const nextFrom  = new Date(nextYear, nextMonth - 1, 1).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
-        const nextTo    = new Date(nextYear, nextMonth - 1, 20).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
-        statusEl.innerHTML = `<div class="fop-alert fop-ok">✅ Цього місяця сплачено<br>Наступний період: з ${nextFrom} до ${nextTo}</div>`;
-        paidBtn.textContent = '↩ Скасувати';
-        paidBtn.classList.add('fop-paid-btn--undo');
+        // Плашка: жовта або червона
+        const daysLeft = 20 - day;
+        let html;
+        if (day <= 20) {
+          html = `<div class="fop-alert fop-warn">⚠️ Не сплачено. Дедлайн: до ${toStr} — залишилось <strong>${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дні' : 'днів'}</strong></div>`;
+        } else {
+          html = `<div class="fop-alert fop-overdue">🔴 Прострочено! Термін сплати минув ${toStr}</div>`;
+        }
+        if (isEsvMonth) {
+          html += `<div class="fop-alert fop-warn" style="margin-top:8px;">⚠️ Цей місяць також сплачується ЄСВ — 1 902,34 грн</div>`;
+        }
+        statusEl.innerHTML = html;
+        // Активна кнопка — Сплачено
+        btnPaid.classList.add('fop-action-active');
+        btnUnpaid.classList.remove('fop-action-active');
       }
     }
-    document.getElementById('fop-paid-btn').addEventListener('click', () => {
-      const key = fopMonthKey();
-      if (localStorage.getItem(key) === '1') { localStorage.removeItem(key); } else { localStorage.setItem(key, '1'); }
+
+    document.getElementById('fop-btn-paid').addEventListener('click', () => {
+      localStorage.setItem(fopMonthKey(), '1');
       renderFop();
     });
+    document.getElementById('fop-btn-unpaid').addEventListener('click', () => {
+      localStorage.removeItem(fopMonthKey());
+      renderFop();
+    });
+
     renderFop();
   </script>
 </body>
