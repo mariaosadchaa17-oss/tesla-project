@@ -13,11 +13,13 @@ const tripsRef = db.collection('trips');
 const expensesRef = db.collection('expenses');
 const shiftsRef = db.collection('shifts');
 
-// Орієнтовні значення для розрахунку економії (можна підкоригувати)
 const GAS_PRICE_PER_LITER = 55;
 const GAS_CONSUMPTION_PER_100KM = 8;
 const EV_PRICE_PER_KWH = 4;
 const EV_CONSUMPTION_PER_100KM = 18;
+
+const TAX_UNIFIED = 1729.40;
+const TAX_MILITARY = 864.70;
 
 const form = document.getElementById('trip-form');
 const amountInput = document.getElementById('amount');
@@ -34,7 +36,9 @@ const todayCountEl = document.getElementById('today-count');
 const weekTotalEl = document.getElementById('week-total');
 const monthTotalEl = document.getElementById('month-total');
 const todayExpensesEl = document.getElementById('today-expenses');
+const todayCommissionEl = document.getElementById('today-commission');
 const todayNetEl = document.getElementById('today-net');
+const commissionInput = document.getElementById('commission-input');
 
 const expenseForm = document.getElementById('expense-form');
 const expenseCategory = document.getElementById('expense-category');
@@ -46,14 +50,32 @@ const shiftStatus = document.getElementById('shift-status');
 const shiftRateRow = document.getElementById('shift-rate-row');
 const shiftRate = document.getElementById('shift-rate');
 
+const taxUnifiedEl = document.getElementById('tax-unified');
+const taxMilitaryEl = document.getElementById('tax-military');
+const taxTotalEl = document.getElementById('tax-total');
+const taxStatusLabel = document.getElementById('tax-status-label');
+const taxPaidBtn = document.getElementById('tax-paid-btn');
+
 const teslaKmEl = document.getElementById('tesla-km');
 const teslaSavingsEl = document.getElementById('tesla-savings');
+
+const heatmapEl = document.getElementById('heatmap');
+
+const rangeFrom = document.getElementById('range-from');
+const rangeTo = document.getElementById('range-to');
+const rangeTotalEl = document.getElementById('range-total');
+const rangeCountEl = document.getElementById('range-count');
+
+const exportPdfBtn = document.getElementById('export-pdf-btn');
+const themeToggleBtn = document.getElementById('theme-toggle');
 
 let editingId = null;
 let allTrips = [];
 let allExpenses = [];
 let activeShift = null;
 let shiftInterval = null;
+let commissionPercent = Number(localStorage.getItem('uklonCommission')) || 15;
+commissionInput.value = commissionPercent;
 
 function dateKeyOf(date) {
   return date.toISOString().slice(0, 10);
@@ -61,6 +83,11 @@ function dateKeyOf(date) {
 
 function todayKey() {
   return dateKeyOf(new Date());
+}
+
+function monthKey() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
 
 function startOfWeekKey() {
@@ -131,6 +158,12 @@ function stopEditing() {
   saveBtn.textContent = 'Зберегти';
   cancelEditBtn.style.display = 'none';
 }
+
+commissionInput.addEventListener('input', () => {
+  commissionPercent = Number(commissionInput.value) || 0;
+  localStorage.setItem('uklonCommission', commissionPercent);
+  render();
+});
 
 tripsRef.orderBy('createdAt', 'desc').limit(1000).onSnapshot((snapshot) => {
   allTrips = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -233,6 +266,43 @@ async function restoreShift() {
 }
 restoreShift();
 
+function renderTax() {
+  taxUnifiedEl.textContent = TAX_UNIFIED.toFixed(2) + ' грн';
+  taxMilitaryEl.textContent = TAX_MILITARY.toFixed(2) + ' грн';
+  taxTotalEl.textContent = (TAX_UNIFIED + TAX_MILITARY).toFixed(2) + ' грн';
+
+  const key = 'taxPaid-' + monthKey();
+  const paid = localStorage.getItem(key) === '1';
+  const day = new Date().getDate();
+
+  if (paid) {
+    taxStatusLabel.textContent = 'Сплачено за цей місяць';
+    taxStatusLabel.style.color = 'var(--charge)';
+    taxPaidBtn.textContent = 'Скасувати позначку';
+  } else {
+    taxPaidBtn.textContent = 'Позначити сплачено';
+    if (day >= 15) {
+      taxStatusLabel.textContent = 'Наближається дата сплати (до 20 числа)!';
+      taxStatusLabel.style.color = 'var(--tip)';
+    } else {
+      taxStatusLabel.textContent = 'Ще не сплачено за цей місяць';
+      taxStatusLabel.style.color = 'var(--text-muted)';
+    }
+  }
+}
+
+taxPaidBtn.addEventListener('click', () => {
+  const key = 'taxPaid-' + monthKey();
+  const paid = localStorage.getItem(key) === '1';
+  if (paid) {
+    localStorage.removeItem(key);
+  } else {
+    localStorage.setItem(key, '1');
+  }
+  renderTax();
+});
+renderTax();
+
 function render() {
   const today = todayKey();
   const weekStart = startOfWeekKey();
@@ -244,7 +314,9 @@ function render() {
   const todayExpensesList = allExpenses.filter((x) => x.dateKey === today);
 
   const todayTotal = todayTrips.reduce((s, t) => s + t.total, 0);
+  const todayFare = todayTrips.reduce((s, t) => s + t.amount, 0);
   const todayExpensesTotal = todayExpensesList.reduce((s, x) => s + x.amount, 0);
+  const todayCommission = (todayFare * commissionPercent) / 100;
 
   todayTotalEl.textContent = todayTotal.toFixed(0);
   todayTipsEl.textContent = todayTrips.reduce((s, t) => s + t.tip, 0).toFixed(0);
@@ -254,7 +326,8 @@ function render() {
   monthTotalEl.textContent = monthTrips.reduce((s, t) => s + t.total, 0).toFixed(0);
 
   todayExpensesEl.textContent = todayExpensesTotal.toFixed(0) + ' грн';
-  todayNetEl.textContent = (todayTotal - todayExpensesTotal).toFixed(0) + ' грн';
+  todayCommissionEl.textContent = todayCommission.toFixed(0) + ' грн';
+  todayNetEl.textContent = (todayTotal - todayCommission - todayExpensesTotal).toFixed(0) + ' грн';
 
   historyList.innerHTML = '';
   todayTrips.forEach((t) => {
@@ -298,6 +371,8 @@ function render() {
 
   renderTesla();
   renderDays();
+  renderHeatmap();
+  renderRange();
   updateShiftUI();
 }
 
@@ -335,3 +410,96 @@ function renderDays() {
     daysList.appendChild(li);
   });
 }
+
+const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
+const BUCKET_LABELS = ['Ніч', 'Ранок', 'День', 'Вечір'];
+
+function renderHeatmap() {
+  const grid = Array.from({ length: 7 }, () => [0, 0, 0, 0]);
+  allTrips.forEach((t) => {
+    if (!t.createdAt) return;
+    const d = t.createdAt.toDate();
+    let dow = d.getDay();
+    dow = dow === 0 ? 6 : dow - 1;
+    const bucket = Math.floor(d.getHours() / 6);
+    grid[dow][bucket] += t.total;
+  });
+
+  let max = 0;
+  grid.forEach((row) => row.forEach((v) => { if (v > max) max = v; }));
+
+  let html = '<div class="heatmap">';
+  html += '<div class="heatmap-cell heatmap-label"></div>';
+  BUCKET_LABELS.forEach((b) => {
+    html += `<div class="heatmap-cell heatmap-label">${b}</div>`;
+  });
+  grid.forEach((row, i) => {
+    html += `<div class="heatmap-cell heatmap-label">${DOW_LABELS[i]}</div>`;
+    row.forEach((v) => {
+      const opacity = max > 0 ? (0.12 + 0.75 * (v / max)).toFixed(2) : 0.08;
+      html += `<div class="heatmap-cell" style="background:rgba(79,131,247,${opacity})" title="${v.toFixed(0)} грн">${v > 0 ? Math.round(v) : ''}</div>`;
+    });
+  });
+  html += '</div>';
+  heatmapEl.innerHTML = html;
+}
+
+function renderRange() {
+  const from = rangeFrom.value;
+  const to = rangeTo.value;
+  if (!from && !to) {
+    rangeTotalEl.textContent = '0 грн';
+    rangeCountEl.textContent = '0';
+    return;
+  }
+  const filtered = allTrips.filter((t) => {
+    if (from && t.dateKey < from) return false;
+    if (to && t.dateKey > to) return false;
+    return true;
+  });
+  rangeTotalEl.textContent = filtered.reduce((s, t) => s + t.total, 0).toFixed(0) + ' грн';
+  rangeCountEl.textContent = filtered.length;
+}
+
+rangeFrom.addEventListener('change', renderRange);
+rangeTo.addEventListener('change', renderRange);
+
+exportPdfBtn.addEventListener('click', () => {
+  const doc = new window.jspdf.jsPDF();
+  doc.setFontSize(16);
+  doc.text('Звіт по заробітку', 14, 18);
+  doc.setFontSize(11);
+  let y = 30;
+  const line = (label, value) => {
+    doc.text(`${label}: ${value}`, 14, y);
+    y += 8;
+  };
+  line('Дата формування', new Date().toLocaleDateString('uk-UA'));
+  line('Сьогодні', todayTotalEl.textContent + ' грн (' + todayCountEl.textContent + ' поїздок)');
+  line('Чайові сьогодні', todayTipsEl.textContent + ' грн');
+  line('За тиждень', weekTotalEl.textContent + ' грн');
+  line('За місяць', monthTotalEl.textContent + ' грн');
+  line('Витрати сьогодні', todayExpensesEl.textContent);
+  line('Комісія Uklon сьогодні', todayCommissionEl.textContent);
+  line('Чистими сьогодні', todayNetEl.textContent);
+  doc.save('zvit-' + todayKey() + '.pdf');
+});
+
+function getDefaultTheme() {
+  const hour = new Date().getHours();
+  return (hour >= 7 && hour < 19) ? 'light' : 'dark';
+}
+
+function applyTheme(theme) {
+  document.body.classList.toggle('light', theme === 'light');
+  themeToggleBtn.textContent = theme === 'light' ? '🌙' : '☀️';
+}
+
+let currentTheme = localStorage.getItem('theme') || getDefaultTheme();
+applyTheme(currentTheme);
+
+themeToggleBtn.addEventListener('click', () => {
+  currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+  localStorage.setItem('theme', currentTheme);
+  applyTheme(currentTheme);
+});
