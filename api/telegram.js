@@ -6,6 +6,7 @@ module.exports = async (req, res) => {
 
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const projectId = 'tesla-project-927d5';
+  const apiKey = 'AIzaSyAxaxDHu_iFSPIDTQA7shlLq6H7XuNke6w';
 
   const update = req.body;
   const message = update && update.message;
@@ -83,7 +84,7 @@ module.exports = async (req, res) => {
     };
 
     const firestoreResp = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/trips`,
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/trips?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -93,7 +94,7 @@ module.exports = async (req, res) => {
 
     if (!firestoreResp.ok) {
       const errText = await firestoreResp.text();
-      await reply('Помилка збереження: ' + errText.slice(0, 200));
+      await reply('Помилка збереження: ' + errText.slice(0, 300));
       res.status(200).send('ok');
       return;
     }
