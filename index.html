@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
   <title>Улік поїздок | Uklon Tesla</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,18 +13,22 @@
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
-  <div class="app">
+  <div class="app" id="app-root">
     <header class="header">
       <div>
         <h1>Tesla Trip Log</h1>
         <div class="date" id="current-date">Сьогодні</div>
       </div>
       <div class="header-right">
+        <div class="zoom-control">
+          <button class="zoom-btn" id="zoom-out" title="Зменшити">−</button>
+          <span class="zoom-label" id="zoom-label">100%</span>
+          <button class="zoom-btn" id="zoom-in" title="Збільшити">+</button>
+        </div>
         <button id="theme-toggle" class="theme-toggle" title="Змінити тему">☀️</button>
       </div>
     </header>
@@ -40,6 +44,7 @@
       </div>
     </div>
 
+    <!-- Загальна сума + комісія під нею -->
     <div class="charge-card">
       <div class="charge-top">
         <span class="charge-icon">⚡</span>
@@ -49,25 +54,16 @@
       <div class="charge-label">
         Чайові: <strong id="today-tips">0</strong> грн | Замовлень: <strong id="today-count">0</strong>
       </div>
-    </div>
-
-    <div class="card">
-      <h3>Фінансовий розрахунок</h3>
-      <div class="card-row">
-        <span>Комісія Uklon (%)</span>
-        <input type="number" id="commission-input" class="inline-input" value="15" />
-      </div>
-      <div class="card-row">
-        <span>Комісія сума:</span>
-        <span id="today-commission" class="card-value negative">0 грн</span>
-      </div>
-      <div class="card-row">
-        <span>Витрати:</span>
-        <span id="today-expenses" class="card-value negative">0 грн</span>
-      </div>
-      <div class="card-row" style="margin-top: 8px; border-top: 1px solid var(--surface-2); padding-top: 8px;">
-        <strong>Чистий прибуток:</strong>
-        <span id="today-net" class="card-value positive">0 грн</span>
+      <!-- Комісія прямо під загальною сумою -->
+      <div class="commission-inline">
+        <div class="commission-inline-row">
+          <span class="commission-inline-label">Комісія Uklon</span>
+          <div class="commission-inline-right">
+            <input type="number" id="commission-input" class="commission-pct-input" value="15" title="% комісії" />
+            <span class="commission-pct-sign">%</span>
+            <span id="today-commission" class="commission-amount">= 0 грн</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -117,7 +113,7 @@
       </div>
 
       <div class="form-buttons">
-        <button type="submit" id="save-trip-btn" class="save-btn">Зберегти</button>
+        <button type="submit" id="save-trip-btn" class="save-btn">💾 Зберегти поїздку</button>
         <button type="button" id="cancel-edit-btn" class="cancel-edit-btn" style="display: none;">Скасувати</button>
       </div>
     </form>
@@ -130,6 +126,18 @@
     </div>
 
     <div class="card" style="margin-top: 24px;">
+      <h3>Фінансовий підсумок</h3>
+      <div class="card-row">
+        <span>Витрати сьогодні:</span>
+        <span id="today-expenses" class="card-value negative">0 грн</span>
+      </div>
+      <div class="card-row" style="margin-top: 8px; border-top: 1px solid var(--surface-2); padding-top: 8px;">
+        <strong>Чистий прибуток:</strong>
+        <span id="today-net" class="card-value positive">0 грн</span>
+      </div>
+    </div>
+
+    <div class="card">
       <h3>Додати витрату</h3>
       <form id="expense-form" class="expense-form">
         <select id="expense-category">
@@ -157,8 +165,8 @@
     </div>
 
     <div class="card">
-        <h3>Активність за часом та днем</h3>
-        <div id="heatmap"></div>
+      <h3>Активність за часом та днем</h3>
+      <div id="heatmap"></div>
     </div>
 
     <div class="card">
@@ -188,11 +196,26 @@
     const dateEl = document.getElementById('current-date');
     if (dateEl) {
       dateEl.textContent = new Date().toLocaleDateString('uk-UA', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long'
+        weekday: 'long', day: 'numeric', month: 'long'
       });
     }
+
+    // Zoom control
+    const ZOOM_STEPS = [70, 80, 90, 100, 110, 120, 130, 150];
+    let zoomIdx = ZOOM_STEPS.indexOf(Number(localStorage.getItem('appZoom')) || 100);
+    if (zoomIdx < 0) zoomIdx = 3;
+
+    function applyZoom() {
+      const z = ZOOM_STEPS[zoomIdx];
+      document.getElementById('app-root').style.zoom = z / 100;
+      document.getElementById('zoom-label').textContent = z + '%';
+      localStorage.setItem('appZoom', z);
+      document.getElementById('zoom-out').disabled = zoomIdx === 0;
+      document.getElementById('zoom-in').disabled = zoomIdx === ZOOM_STEPS.length - 1;
+    }
+    document.getElementById('zoom-in').addEventListener('click', () => { if (zoomIdx < ZOOM_STEPS.length - 1) { zoomIdx++; applyZoom(); } });
+    document.getElementById('zoom-out').addEventListener('click', () => { if (zoomIdx > 0) { zoomIdx--; applyZoom(); } });
+    applyZoom();
   </script>
 </body>
 </html>

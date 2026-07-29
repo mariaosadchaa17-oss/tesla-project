@@ -21,8 +21,11 @@ body.light {
   --tip: #b8790a;
 }
 
-* { 
-  box-sizing: border-box; 
+* { box-sizing: border-box; }
+
+html {
+  /* Не блокуємо зум пальцями на iOS/Android */
+  touch-action: manipulation;
 }
 
 body {
@@ -32,38 +35,81 @@ body {
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   transition: background 0.2s ease, color 0.2s ease;
+  /* Мінімальний розмір тексту на мобілці */
+  -webkit-text-size-adjust: 100%;
 }
 
 .app {
   max-width: 480px;
   margin: 0 auto;
-  padding: 24px 20px 60px;
+  padding: 24px 16px 60px;
+  /* zoom через JS — overflow не ламаємо */
+  transform-origin: top center;
 }
 
+/* ── Header ── */
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .header h1 {
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 26px;
+  font-size: 24px;
   margin: 0;
 }
 
 .date {
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 13px;
   text-transform: capitalize;
+}
+
+/* ── Zoom control ── */
+.zoom-control {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 2px 4px;
+}
+
+.zoom-btn {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s;
+}
+.zoom-btn:hover:not(:disabled) { background: var(--surface); }
+.zoom-btn:disabled { opacity: 0.3; cursor: default; }
+
+.zoom-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 36px;
+  text-align: center;
 }
 
 .theme-toggle {
@@ -80,6 +126,7 @@ body {
   justify-content: center;
 }
 
+/* ── Charge card з вбудованою комісією ── */
 .charge-card {
   background: var(--surface);
   border-radius: var(--radius);
@@ -102,11 +149,62 @@ body {
 }
 
 .charge-label {
-  margin-top: 8px;
+  margin-top: 6px;
   font-size: 13px;
   color: var(--text-muted);
 }
 
+/* Блок комісії всередині charge-card */
+.commission-inline {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--surface-2);
+}
+
+.commission-inline-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.commission-inline-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.commission-inline-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.commission-pct-input {
+  width: 52px;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-2);
+  border-radius: 8px;
+  padding: 5px 6px;
+  color: var(--text);
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.commission-pct-sign {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.commission-amount {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--tip);
+}
+
+/* ── Stats row ── */
 .stats-row {
   display: flex;
   gap: 12px;
@@ -115,6 +213,7 @@ body {
 
 .stat {
   flex: 1;
+  min-width: 0;
   background: var(--surface);
   border-radius: var(--radius);
   padding: 14px;
@@ -127,6 +226,7 @@ body {
   font-weight: 700;
   font-size: 22px;
   margin-bottom: 4px;
+  word-break: break-all;
 }
 
 .stat-label {
@@ -145,6 +245,7 @@ body {
   gap: 4px;
 }
 
+/* ── Cards ── */
 .card {
   background: var(--surface);
   border-radius: var(--radius);
@@ -166,6 +267,7 @@ body {
   font-size: 14px;
   padding: 6px 0;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .card-value {
@@ -173,13 +275,13 @@ body {
   font-weight: 700;
   font-size: 18px;
   text-align: right;
+  white-space: nowrap;
 }
 
 .card-value.positive { color: var(--charge); }
 .card-value.negative { color: var(--tip); }
 
 .inline-input {
-  width: 65px;
   background: var(--surface-2);
   border: 1px solid var(--surface-2);
   border-radius: 8px;
@@ -187,12 +289,15 @@ body {
   color: var(--text);
   text-align: right;
   font-size: 14px;
+  min-width: 0;
 }
 
+/* ── Payment options ── */
 .payment-options {
   display: flex;
   gap: 14px;
   margin-top: 4px;
+  flex-wrap: wrap;
 }
 
 .payment-options label {
@@ -202,10 +307,12 @@ body {
   font-size: 14px;
   color: var(--text-muted);
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .payment-options input { accent-color: var(--accent); }
 
+/* ── Buttons ── */
 .shift-btn {
   flex: 1;
   background: var(--accent);
@@ -217,32 +324,27 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.15s ease;
+  white-space: nowrap;
 }
 
 .shift-btn:hover { opacity: 0.9; }
 .shift-btn.stop { background: var(--tip); color: #1a1400; }
 .shift-btn.secondary-btn { background: var(--surface-2); color: var(--text); }
 
+/* ── Trip form ── */
 .trip-form {
   display: flex;
   gap: 10px;
   margin-bottom: 24px;
   flex-wrap: wrap;
-  justify-content: space-between;
 }
 
-/* Всі 4 поля однакові по 50% */
 .field {
-  flex-grow: 1;
-  flex-basis: calc(50% - 5px);
+  flex: 1 1 calc(50% - 5px);
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-
-/* Тип оплати теж 50% (прибрали flex-basis: 100%) */
-.field:last-of-type {
-  flex-basis: calc(50% - 5px);
 }
 
 .field label {
@@ -258,6 +360,7 @@ body {
   color: var(--text);
   font-size: 18px;
   width: 100%;
+  min-width: 0;
 }
 
 .field input:focus {
@@ -275,6 +378,7 @@ body {
   border: none;
   border-radius: 10px;
   width: 44px;
+  flex-shrink: 0;
   color: var(--text);
   font-size: 16px;
   cursor: pointer;
@@ -291,31 +395,50 @@ body {
   background: var(--surface-2);
   border: none;
   border-radius: 8px;
-  padding: 6px;
+  padding: 6px 2px;
   color: var(--text);
   font-size: 13px;
   cursor: pointer;
+  min-width: 0;
 }
 
+/* ── Save button — великий ── */
 .form-buttons {
-  flex-basis: 100%;
+  flex: 1 1 100%;
   display: flex;
   gap: 10px;
-  margin-top: 10px;
+  margin-top: 6px;
 }
 
-.save-btn { flex-grow: 1; }
+.save-btn {
+  flex-grow: 1;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  padding: 18px 20px;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.save-btn:hover { opacity: 0.9; }
+.save-btn:active { transform: scale(0.98); }
 
 .cancel-edit-btn {
   background: var(--surface-2);
   color: var(--text);
   border: none;
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 14px;
+  padding: 18px 16px;
   font-size: 14px;
   cursor: pointer;
+  white-space: nowrap;
 }
 
+/* ── History ── */
 .history {
   position: relative;
   z-index: 1;
@@ -325,8 +448,7 @@ body {
   font-size: 16px;
   font-weight: 500;
   color: var(--text-muted);
-  margin-bottom: 10px;
-  margin-top: 0;
+  margin: 0 0 10px;
 }
 
 .history-list {
@@ -340,19 +462,20 @@ body {
 
 .history-item {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto auto auto;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   background: var(--surface);
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 14px;
+  min-width: 0;
 }
 
-.history-time { color: var(--text-muted); font-size: 13px; }
-.history-amounts { text-align: left; }
+.history-time { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+.history-amounts { text-align: left; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .history-tip { color: var(--tip); }
-.history-total { font-weight: 500; }
+.history-total { font-weight: 500; white-space: nowrap; }
 
 .edit-btn, .delete-btn {
   background: none;
@@ -360,8 +483,9 @@ body {
   color: var(--text-muted);
   font-size: 18px;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0 2px;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .delete-btn:hover { color: #ef4444; }
@@ -373,16 +497,17 @@ body {
   padding: 16px 0;
 }
 
+/* ── Expense form ── */
 .expense-form {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .expense-form select,
 .expense-form input {
   flex: 1;
-  min-width: 100px;
+  min-width: 90px;
   background: var(--surface-2);
   border: 1px solid var(--surface-2);
   border-radius: 10px;
@@ -399,26 +524,29 @@ body {
   padding: 10px 14px;
   font-weight: 500;
   cursor: pointer;
+  white-space: nowrap;
 }
 
+/* ── Heatmap ── */
 .heatmap-grid {
   display: grid;
-  grid-template-columns: 30px repeat(3, 1fr);
+  grid-template-columns: 28px repeat(3, 1fr);
   gap: 4px;
 }
 
 .heatmap-cell {
-  padding: 4px;
+  padding: 4px 2px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-align: center;
   background: var(--surface-2);
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 30px;
+  min-height: 28px;
   transition: background 0.2s;
+  overflow: hidden;
 }
 
 .heatmap-label {
@@ -428,9 +556,19 @@ body {
   font-size: 10px;
 }
 
-.badge {
-  font-size: 10px;
-  font-weight: 600;
-}
+/* ── Badges ── */
+.badge { font-size: 10px; font-weight: 600; }
 .badge.up { color: var(--charge); }
 .badge.down { color: var(--tip); }
+
+/* ── Mobile: екрани < 400px ── */
+@media (max-width: 400px) {
+  .app { padding: 16px 12px 60px; }
+  .header h1 { font-size: 20px; }
+  .charge-total { font-size: 26px; }
+  .stat-value { font-size: 18px; }
+  .field input { font-size: 16px; padding: 10px; }
+  .save-btn { font-size: 15px; padding: 16px; }
+  .card { padding: 14px; }
+  .zoom-label { display: none; }
+}
