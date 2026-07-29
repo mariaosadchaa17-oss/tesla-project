@@ -26,7 +26,7 @@
 </head>
 <body>
 
-  <!-- ═══════════════════════════════ ЕКРАН ВХОДУ ═══════════════════════════════ -->
+  <!-- ЕКРАН ВХОДУ -->
   <div id="lock-screen" class="lock-screen" style="display:none;">
     <div class="lock-box">
       <div class="lock-logo">Rukh</div>
@@ -34,10 +34,11 @@
       <input type="password" id="lock-input" class="lock-input" placeholder="••••••" autocomplete="current-password" />
       <div class="lock-error" id="lock-error"></div>
       <button class="lock-btn" id="lock-submit">Увійти</button>
+      <div class="lock-note">Різний пароль — окремі дані</div>
     </div>
   </div>
 
-  <!-- ═══════════════════════════════ ЗАСТОСУНОК ═══════════════════════════════ -->
+  <!-- ЗАСТОСУНОК -->
   <div class="app" id="app-root" style="display:none;">
     <header class="header">
       <div>
@@ -112,27 +113,19 @@
       </div>
       <div class="form-buttons">
         <button type="submit" id="save-trip-btn" class="save-btn">💾 Зберегти поїздку</button>
-        <button type="button" id="cancel-edit-btn" class="cancel-edit-btn" style="display: none;">Скасувати</button>
+        <button type="button" id="cancel-edit-btn" class="cancel-edit-btn" style="display:none;">Скасувати</button>
       </div>
     </form>
 
     <div class="history">
       <h2>Сьогоднішні поїздки</h2>
-      <ul id="history-list" class="history-list">
-        <li class="empty">Завантаження...</li>
-      </ul>
+      <ul id="history-list" class="history-list"><li class="empty">Завантаження...</li></ul>
     </div>
 
-    <div class="card" style="margin-top: 24px;">
+    <div class="card" style="margin-top:24px;">
       <h3>Фінансовий підсумок</h3>
-      <div class="card-row">
-        <span>Витрати сьогодні:</span>
-        <span id="today-expenses" class="card-value negative">0 грн</span>
-      </div>
-      <div class="card-row" style="margin-top: 8px; border-top: 1px solid var(--surface-2); padding-top: 8px;">
-        <strong>Чистий прибуток:</strong>
-        <span id="today-net" class="card-value positive">0 грн</span>
-      </div>
+      <div class="card-row"><span>Витрати сьогодні:</span><span id="today-expenses" class="card-value negative">0 грн</span></div>
+      <div class="card-row" style="margin-top:8px;border-top:1px solid var(--surface-2);padding-top:8px;"><strong>Чистий прибуток:</strong><span id="today-net" class="card-value positive">0 грн</span></div>
     </div>
 
     <div class="card">
@@ -147,20 +140,14 @@
         <input type="number" id="expense-amount" placeholder="Сума грн" required />
         <button type="submit">Додати</button>
       </form>
-      <ul id="expense-list" class="history-list" style="margin-top: 10px;"></ul>
+      <ul id="expense-list" class="history-list" style="margin-top:10px;"></ul>
     </div>
 
     <div class="card">
       <h3>Економія на Tesla</h3>
-      <div class="card-row">
-        <span>Загальний пробіг:</span>
-        <span id="tesla-km" class="card-value">0 км</span>
-      </div>
-      <div class="card-row">
-        <span>Збережено (vs бензин):</span>
-        <span id="tesla-savings" class="card-value positive">0 грн</span>
-      </div>
-      <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--surface-2);">
+      <div class="card-row"><span>Загальний пробіг:</span><span id="tesla-km" class="card-value">0 км</span></div>
+      <div class="card-row"><span>Збережено (vs бензин):</span><span id="tesla-savings" class="card-value positive">0 грн</span></div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--surface-2);">
         <div class="km-row">
           <label for="km">Додати пробіг (км)</label>
           <div class="km-input-group">
@@ -178,38 +165,14 @@
     </div>
 
     <div class="card fop-card" id="fop-card">
-      <div class="fop-header">
-        <span class="fop-icon">📅</span>
-        <h3 style="margin:0;">ФОП 2 група — податки</h3>
-      </div>
+      <div class="fop-header"><span class="fop-icon">📅</span><h3 style="margin:0;">ФОП 2 група — податки</h3></div>
       <div id="fop-status" class="fop-status"></div>
       <div class="fop-taxes">
-        <div class="fop-tax-row">
-          <div>
-            <div>Єдиний податок</div>
-            <div class="fop-period">до 20 числа кожного місяця</div>
-          </div>
-          <span class="fop-fixed-amount">1&nbsp;729,40 грн</span>
-        </div>
-        <div class="fop-tax-row">
-          <div>
-            <div>Військовий збір</div>
-            <div class="fop-period">до 20 числа кожного місяця</div>
-          </div>
-          <span class="fop-fixed-amount">864,70 грн</span>
-        </div>
-        <div class="fop-tax-row">
-          <div>
-            <div>ЄСВ</div>
-            <div class="fop-period">щоквартально, до 20-го після кварталу</div>
-          </div>
-          <span class="fop-fixed-amount">1&nbsp;902,34 грн</span>
-        </div>
+        <div class="fop-tax-row"><div><div>Єдиний податок</div><div class="fop-period">до 20 числа кожного місяця</div></div><span class="fop-fixed-amount">1&nbsp;729,40 грн</span></div>
+        <div class="fop-tax-row"><div><div>Військовий збір</div><div class="fop-period">до 20 числа кожного місяця</div></div><span class="fop-fixed-amount">864,70 грн</span></div>
+        <div class="fop-tax-row"><div><div>ЄСВ</div><div class="fop-period">щоквартально, до 20-го після кварталу</div></div><span class="fop-fixed-amount">1&nbsp;902,34 грн</span></div>
       </div>
-      <div class="fop-total-row">
-        <span>Щомісяць (єп + вз):</span>
-        <span class="card-value negative">2&nbsp;594,10 грн</span>
-      </div>
+      <div class="fop-total-row"><span>Щомісяць (єп + вз):</span><span class="card-value negative">2&nbsp;594,10 грн</span></div>
       <div class="fop-btn-row">
         <button id="fop-btn-paid" class="fop-action-btn fop-action-paid">✅ Сплачено</button>
         <button id="fop-btn-unpaid" class="fop-action-btn fop-action-unpaid">❌ Не сплачено</button>
@@ -219,161 +182,129 @@
     <div class="card">
       <h3>Вибірка за датами</h3>
       <div class="card-row">
-        <input type="date" id="range-from" class="inline-input" style="width: 48%;" />
-        <input type="date" id="range-to" class="inline-input" style="width: 48%;" />
+        <input type="date" id="range-from" class="inline-input" style="width:48%;" />
+        <input type="date" id="range-to" class="inline-input" style="width:48%;" />
       </div>
-      <div class="card-row" style="margin-top: 8px;">
-        <span>Разом за період:</span>
-        <span id="range-total" class="card-value positive">0 грн</span>
-      </div>
-      <div class="card-row">
-        <span>Поїздок:</span>
-        <span id="range-count" class="card-value">0</span>
-      </div>
+      <div class="card-row" style="margin-top:8px;"><span>Разом за період:</span><span id="range-total" class="card-value positive">0 грн</span></div>
+      <div class="card-row"><span>Поїздок:</span><span id="range-count" class="card-value">0</span></div>
     </div>
 
-    <div style="margin-top: 20px;">
+    <div style="margin-top:20px;">
       <button id="export-pdf-btn" class="shift-btn" style="width:100%;">📄 PDF Звіт</button>
     </div>
   </div>
 
   <script src="app.js"></script>
   <script>
-    // ══════════════════ ЗАХИСТ ПАРОЛЕМ ══════════════════
-    // Пароль зберігається в localStorage як 'rukh-pass'.
-    // Сесія зберігається як 'rukh-session' — щоб не питати кожного разу.
-    const PASS_KEY    = 'rukh-pass';
-    const SESSION_KEY = 'rukh-session';
+    const SESSION_KEY = 'rukh-session-uid';
+    const lockScreen  = document.getElementById('lock-screen');
+    const appRoot     = document.getElementById('app-root');
+    const lockInput   = document.getElementById('lock-input');
+    const lockSubmit  = document.getElementById('lock-submit');
+    const lockHint    = document.getElementById('lock-hint');
+    const lockError   = document.getElementById('lock-error');
 
-    const lockScreen = document.getElementById('lock-screen');
-    const appRoot    = document.getElementById('app-root');
-    const lockInput  = document.getElementById('lock-input');
-    const lockSubmit = document.getElementById('lock-submit');
-    const lockHint   = document.getElementById('lock-hint');
-    const lockError  = document.getElementById('lock-error');
+    // SHA-256 паролю → hex-рядок (стає userId)
+    async function hashPass(pass) {
+      const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
 
-    function showApp() {
+    function showApp(uid) {
       lockScreen.style.display = 'none';
       appRoot.style.display    = 'block';
-      initApp();
+      initApp(uid);
     }
-    function showLock(hint) {
+    function showLock() {
       lockScreen.style.display = 'flex';
       appRoot.style.display    = 'none';
-      lockHint.textContent = hint || 'Введи пароль';
       lockInput.value = '';
       lockError.textContent = '';
+      lockHint.textContent  = 'Введи пароль';
       setTimeout(() => lockInput.focus(), 100);
     }
 
-    // Перевірка при старті
-    (function checkAuth() {
-      const hasPass    = !!localStorage.getItem(PASS_KEY);
-      const hasSession = localStorage.getItem(SESSION_KEY) === '1';
-      if (!hasPass) {
-        // Перший запуск — встановлення пароля
-        showLock('Придумай пароль (перший вхід)');
-      } else if (hasSession) {
-        // Активна сесія — одразу в застосунок
-        showApp();
-      } else {
-        showLock('Введи пароль');
-      }
-    })();
+    // Перевірка сесії при запуску
+    const savedUid = sessionStorage.getItem(SESSION_KEY);
+    if (savedUid) { showApp(savedUid); } else { showLock(); }
 
     lockSubmit.addEventListener('click', handleLock);
-    lockInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleLock(); });
+    lockInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleLock(); });
 
-    function handleLock() {
-      const val     = lockInput.value.trim();
-      const hasPass = !!localStorage.getItem(PASS_KEY);
+    async function handleLock() {
+      const val = lockInput.value.trim();
       if (!val) { lockError.textContent = 'Введи пароль'; return; }
-      if (!hasPass) {
-        // Встановлення нового пароля
-        if (val.length < 4) { lockError.textContent = 'Мінімум 4 символи'; return; }
-        localStorage.setItem(PASS_KEY, val);
-        localStorage.setItem(SESSION_KEY, '1');
-        showApp();
-      } else {
-        // Перевірка існуючого
-        if (val === localStorage.getItem(PASS_KEY)) {
-          localStorage.setItem(SESSION_KEY, '1');
-          showApp();
-        } else {
-          lockError.textContent = 'Невірний пароль';
-          lockInput.value = '';
-          lockInput.focus();
-        }
-      }
+      if (val.length < 4) { lockError.textContent = 'Мінімум 4 символи'; return; }
+      lockError.textContent = '';
+      lockSubmit.textContent = '...';
+      const uid = await hashPass(val);
+      // Зберігаємо в sessionStorage — закривши вкладку — знову питає пароль
+      sessionStorage.setItem(SESSION_KEY, uid);
+      lockSubmit.textContent = 'Увійти';
+      showApp(uid);
     }
 
-    // Кнопка 🔒 — вийти (скинути сесію)
     document.getElementById('logout-btn').addEventListener('click', () => {
-      localStorage.removeItem(SESSION_KEY);
-      showLock('Введи пароль');
+      sessionStorage.removeItem(SESSION_KEY);
+      showLock();
     });
 
-    // ══════════════════ ІНІЦІАЛІЗАЦІЯ APP ══════════════════
-    function initApp() {
+    // ═══════════════════ ІНІЦІАЛІЗАЦІЯ ЗАСТОСУНКУ ═══════════════════
+    function initApp(uid) {
+      // Дата
       const dateEl = document.getElementById('current-date');
-      if (dateEl) {
-        dateEl.textContent = new Date().toLocaleDateString('uk-UA', {
-          weekday: 'long', day: 'numeric', month: 'long'
-        });
-      }
+      if (dateEl) dateEl.textContent = new Date().toLocaleDateString('uk-UA', { weekday:'long', day:'numeric', month:'long' });
 
-      const ZOOM_STEPS = [70, 80, 90, 100, 110, 120, 130, 150];
-      let zoomIdx = ZOOM_STEPS.indexOf(Number(localStorage.getItem('appZoom')) || 100);
+      // Зум
+      const ZOOM_STEPS = [70,80,90,100,110,120,130,150];
+      let zoomIdx = ZOOM_STEPS.indexOf(Number(localStorage.getItem('appZoom'))||100);
       if (zoomIdx < 0) zoomIdx = 3;
       function applyZoom() {
         const z = ZOOM_STEPS[zoomIdx];
-        document.getElementById('app-root').style.zoom = z / 100;
-        document.getElementById('zoom-label').textContent = z + '%';
+        document.getElementById('app-root').style.zoom = z/100;
+        document.getElementById('zoom-label').textContent = z+'%';
         localStorage.setItem('appZoom', z);
         document.getElementById('zoom-out').disabled = zoomIdx === 0;
-        document.getElementById('zoom-in').disabled = zoomIdx === ZOOM_STEPS.length - 1;
+        document.getElementById('zoom-in').disabled  = zoomIdx === ZOOM_STEPS.length-1;
       }
-      document.getElementById('zoom-in').addEventListener('click', () => { if (zoomIdx < ZOOM_STEPS.length - 1) { zoomIdx++; applyZoom(); } });
+      document.getElementById('zoom-in').addEventListener('click',  () => { if (zoomIdx < ZOOM_STEPS.length-1) { zoomIdx++; applyZoom(); } });
       document.getElementById('zoom-out').addEventListener('click', () => { if (zoomIdx > 0) { zoomIdx--; applyZoom(); } });
       applyZoom();
 
-      // ── ФОП ──
+      // ФОП
       function fopMonthKey() {
         const d = new Date();
-        return 'fop-paid-' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        return uid + '-fop-' + d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
       }
       function renderFop() {
-        const day = new Date().getDate();
-        const month = new Date().getMonth() + 1;
-        const year  = new Date().getFullYear();
+        const day = new Date().getDate(), month = new Date().getMonth()+1, year = new Date().getFullYear();
         const isPaid = localStorage.getItem(fopMonthKey()) === '1';
-        const statusEl  = document.getElementById('fop-status');
-        const btnPaid   = document.getElementById('fop-btn-paid');
-        const btnUnpaid = document.getElementById('fop-btn-unpaid');
-        const toStr = new Date(year, month - 1, 20).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
-        const esvMonths  = [4, 7, 10, 1];
-        const isEsvMonth = esvMonths.includes(month);
+        const statusEl = document.getElementById('fop-status');
+        const btnPaid  = document.getElementById('fop-btn-paid');
+        const btnUnpaid= document.getElementById('fop-btn-unpaid');
+        const toStr = new Date(year, month-1, 20).toLocaleDateString('uk-UA',{day:'numeric',month:'long'});
+        const isEsvMonth = [4,7,10,1].includes(month);
         if (isPaid) {
-          const nextMonth = month === 12 ? 1 : month + 1;
-          const nextYear  = month === 12 ? year + 1 : year;
-          const nextTo    = new Date(nextYear, nextMonth - 1, 20).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+          const nm = month===12?1:month+1, ny = month===12?year+1:year;
+          const nextTo = new Date(ny,nm-1,20).toLocaleDateString('uk-UA',{day:'numeric',month:'long'});
           statusEl.innerHTML = `<div class="fop-alert fop-ok">✅ Цього місяця сплачено. Наступний дедлайн: до ${nextTo}</div>`;
-          btnPaid.classList.remove('fop-action-active');
-          btnUnpaid.classList.add('fop-action-active');
+          btnPaid.classList.remove('fop-action-active'); btnUnpaid.classList.add('fop-action-active');
         } else {
-          const daysLeft = 20 - day;
+          const dl = 20-day;
           let html = day <= 20
-            ? `<div class="fop-alert fop-warn">⚠️ Не сплачено. Дедлайн: до ${toStr} — залишилось <strong>${daysLeft}&nbsp;${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дні' : 'днів'}</strong></div>`
+            ? `<div class="fop-alert fop-warn">⚠️ Не сплачено. Дедлайн: до ${toStr} — залишилось <strong>${dl}&nbsp;${dl===1?'день':dl<5?'дні':'днів'}</strong></div>`
             : `<div class="fop-alert fop-overdue">🔴 Прострочено! Термін сплати минув ${toStr}</div>`;
           if (isEsvMonth) html += `<div class="fop-alert fop-warn" style="margin-top:8px;">⚠️ Цей місяць також сплачується ЄСВ — 1&nbsp;902,34 грн</div>`;
           statusEl.innerHTML = html;
-          btnPaid.classList.add('fop-action-active');
-          btnUnpaid.classList.remove('fop-action-active');
+          btnPaid.classList.add('fop-action-active'); btnUnpaid.classList.remove('fop-action-active');
         }
       }
-      document.getElementById('fop-btn-paid').addEventListener('click', () => { localStorage.setItem(fopMonthKey(), '1'); renderFop(); });
+      document.getElementById('fop-btn-paid').addEventListener('click',   () => { localStorage.setItem(fopMonthKey(),'1'); renderFop(); });
       document.getElementById('fop-btn-unpaid').addEventListener('click', () => { localStorage.removeItem(fopMonthKey()); renderFop(); });
       renderFop();
+
+      // Передаємо uid у app.js
+      if (typeof startAppWithUid === 'function') startAppWithUid(uid);
     }
   </script>
 </body>
