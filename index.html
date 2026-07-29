@@ -3,17 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b0d0f">
+<link rel="manifest" href="manifest.json">
 <title>Заробіток — облік поїздок</title>
 <link rel="stylesheet" href="style.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
+
+<div id="pin-overlay" class="pin-overlay hidden">
+  <div>🔒</div>
+  <input type="password" id="pin-input" inputmode="numeric" maxlength="6" placeholder="PIN">
+  <button type="button" id="pin-submit-btn" class="shift-btn">Розблокувати</button>
+  <div id="pin-error" style="color:var(--tip);font-size:13px"></div>
+</div>
+
 <div class="app">
   <header class="header">
     <h1>Заробіток</h1>
     <div class="header-right">
       <span class="date" id="current-date"></span>
+      <button id="lock-btn" class="theme-toggle" type="button" aria-label="Заблокувати">🔒</button>
       <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Змінити тему">🌙</button>
     </div>
   </header>
@@ -40,11 +51,19 @@
   <form id="trip-form" class="trip-form">
     <div class="field">
       <label for="amount">Сума поїздки</label>
-      <input type="number" id="amount" inputmode="decimal" placeholder="0" min="0" step="1">
+      <div class="amount-row">
+        <input type="number" id="amount" inputmode="decimal" placeholder="0" min="0" step="1">
+        <button type="button" id="mic-btn" class="mic-btn" aria-label="Голосовий ввід">🎤</button>
+      </div>
     </div>
     <div class="field">
       <label for="tip">Чайові</label>
       <input type="number" id="tip" inputmode="decimal" placeholder="0" min="0" step="1">
+      <div class="quick-tips">
+        <button type="button" class="quick-tip-btn" data-val="20">20</button>
+        <button type="button" class="quick-tip-btn" data-val="50">50</button>
+        <button type="button" class="quick-tip-btn" data-val="100">100</button>
+      </div>
     </div>
     <div class="field">
       <label for="km">Пробіг, км (не обов'язково)</label>
@@ -162,6 +181,19 @@
   </section>
 
   <section class="card">
+    <h3>Графік за 7 днів і порівняння</h3>
+    <div id="week-chart" class="bar-chart"></div>
+    <div class="compare-row">
+      <span>Цей тиждень вс минулий</span>
+      <span id="week-compare"></span>
+    </div>
+    <div class="compare-row">
+      <span>Цей місяць вс минулий</span>
+      <span id="month-compare"></span>
+    </div>
+  </section>
+
+  <section class="card">
     <h3>Довільний період</h3>
     <div class="expense-form">
       <input type="date" id="range-from">
@@ -178,14 +210,20 @@
   </section>
 
   <section class="card">
-    <h3>Звіт</h3>
-    <button id="export-pdf-btn" class="shift-btn" type="button">Експортувати PDF</button>
+    <h3>Захист паролем</h3>
+    <p style="font-size:13px;color:var(--text-muted);margin-top:0">Легкий захист від чужих очей на телефоні, не справжній криптографічний захист.</p>
+    <form id="pin-setup-form" class="expense-form">
+      <input type="password" id="pin-setup-input" inputmode="numeric" maxlength="6" placeholder="Новий PIN (4-6 цифр)">
+      <button type="submit">Встановити PIN</button>
+    </form>
+    <button type="button" id="pin-remove-btn" class="cancel-edit-btn">Вимкнути захист</button>
   </section>
 
-  <details class="settings">
-    <summary>Останні 7 днів</summary>
-    <ul id="days-list" class="history-list"></ul>
-  </details>
+  <section class="card">
+    <h3>Звіт і експорт</h3>
+    <button id="export-pdf-btn" class="shift-btn" type="button" style="margin-right:8px">PDF-звіт</button>
+    <button id="export-csv-btn" class="shift-btn" type="button">CSV всіх поїздок</button>
+  </section>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -195,6 +233,11 @@
 <script>
 document.getElementById('current-date').textContent =
   new Date().toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
 </script>
 </body>
 </html>
