@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     res.status(200).send('ok');
     return;
@@ -18,80 +18,94 @@ export default async function handler(req, res) {
   const chatId = message.chat.id;
   const text = message.text.trim();
 
-  async function reply(text) {
+  async function reply(replyText) {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text })
+      body: JSON.stringify({ chat_id: chatId, text: replyText })
     });
   }
 
-  if (text === '/start') {
-    await reply(
-      'Привіт! Пиши суму поїздки і чайові через пробіл.\n\n' +
-      'Приклади:\n' +
-      '500 — просто сума, без чайових\n' +
-      '500 50 — сума і чайові\n' +
-      '500 50 12 — сума, чайові, пробіг у км\n' +
-      'Додай слово "картка", якщо оплата карткою (за замовчуванням готівка)'
+  try {
+    if (text === '/start') {
+      await reply(
+        'Привіт! Пиши суму поїздки і чайові через пробіл.\n\n' +
+        'Приклади:\n' +
+        '500 — просто сума, без чайових\n' +
+        '500 50 — сума і чайові\n' +
+        '500 50 12 — сума, чайові, пробіг у км\n' +
+        'Додай слово "картка", якщо оплата карткою (за замовчуванням готівка)'
+      );
+      res.status(200).send('ok');
+      return;
+    }
+
+    const parts = text.split(/\s+/);
+    let paymentMethod = 'cash';
+    const numbers = [];
+
+    parts.forEach((p) => {
+      const lower = p.toLowerCase();
+      if (lower.includes('карт')) {
+        paymentMethod = 'card';
+      } else if (lower.includes('готів') || lower.includes('налич')) {
+        paymentMethod = 'cash';
+      } else {
+        const n = parseFloat(p.replace(',', '.'));
+        if (!isNaN(n)) numbers.push(n);
+      }
+    });
+
+    const amount = numbers[0] || 0;
+    const tip = numbers[1] || 0;
+    const km = numbers[2] || 0;
+
+    if (amount <= 0 && tip <= 0) {
+      await reply('Не зрозумів суму. Напиши, наприклад: 500 50');
+      res.status(200).send('ok');
+      return;
+    }
+
+    const now = new Date();
+    const dateKey = now.toISOString().slice(0, 10);
+
+    const body = {
+      fields: {
+        amount: { doubleValue: amount },
+        tip: { doubleValue: tip },
+        total: { doubleValue: amount + tip },
+        km: { doubleValue: km },
+        paymentMethod: { stringValue: paymentMethod },
+        dateKey: { stringValue: dateKey },
+        createdAt: { timestampValue: now.toISOString() },
+        source: { stringValue: 'telegram' }
+      }
+    };
+
+    const firestoreResp = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/trips`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }
     );
+
+    if (!firestoreResp.ok) {
+      const errText = await firestoreResp.text();
+      await reply('Помилка збереження: ' + errText.slice(0, 200));
+      res.status(200).send('ok');
+      return;
+    }
+
+    const paymentLabel = paymentMethod === 'card' ? 'картка' : 'готівка';
+    await reply(`Записано: ${amount} грн + ${tip} чайових = ${amount + tip} грн (${paymentLabel})`);
+
     res.status(200).send('ok');
-    return;
-  }
-
-  const parts = text.split(/\s+/);
-  let paymentMethod = 'cash';
-  const numbers = [];
-
-  parts.forEach((p) => {
-    const lower = p.toLowerCase();
-    if (lower.includes('карт')) {
-      paymentMethod = 'card';
-    } else if (lower.includes('готів') || lower.includes('налич')) {
-      paymentMethod = 'cash';
-    } else {
-      const n = parseFloat(p.replace(',', '.'));
-      if (!isNaN(n)) numbers.push(n);
-    }
-  });
-
-  const amount = numbers[0] || 0;
-  const tip = numbers[1] || 0;
-  const km = numbers[2] || 0;
-
-  if (amount <= 0 && tip <= 0) {
-    await reply('Не зрозумів суму. Напиши, наприклад: 500 50');
+  } catch (err) {
+    try {
+      await reply('Сталася помилка: ' + String(err).slice(0, 200));
+    } catch (e) {}
     res.status(200).send('ok');
-    return;
   }
-
-  const now = new Date();
-  const dateKey = now.toISOString().slice(0, 10);
-
-  const body = {
-    fields: {
-      amount: { doubleValue: amount },
-      tip: { doubleValue: tip },
-      total: { doubleValue: amount + tip },
-      km: { doubleValue: km },
-      paymentMethod: { stringValue: paymentMethod },
-      dateKey: { stringValue: dateKey },
-      createdAt: { timestampValue: now.toISOString() },
-      source: { stringValue: 'telegram' }
-    }
-  };
-
-  await fetch(
-    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/trips`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    }
-  );
-
-  const paymentLabel = paymentMethod === 'card' ? 'картка' : 'готівка';
-  await reply(`Записано: ${amount} грн + ${tip} чайових = ${amount + tip} грн (${paymentLabel})`);
-
-  res.status(200).send('ok');
-}
+};
