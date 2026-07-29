@@ -57,7 +57,6 @@ const rangeCountEl = document.getElementById('range-count');
 
 const exportPdfBtn = document.getElementById('export-pdf-btn');
 const themeToggleBtn = document.getElementById('theme-toggle');
-const micBtn = document.getElementById('mic-btn');
 
 let editingId = null;
 let allTrips = [];
@@ -65,7 +64,6 @@ let allExpenses = [];
 let commissionPercent = Number(localStorage.getItem('uklonCommission')) || 15;
 commissionInput.value = commissionPercent;
 
-// ── Дати ────────────────────────────────────────────────
 function dateKeyOf(date) {
   const d = new Date(date);
   const y = d.getFullYear();
@@ -86,8 +84,6 @@ function startOfMonthFromKey(key) { const d = new Date(key); d.setDate(1); retur
 function formatDateUA(key) {
   return new Date(key).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
 }
-
-// Обчислює дати поточного тижня (Пн–Нд)
 function getWeekDates() {
   const today = new Date();
   const dow = today.getDay() === 0 ? 7 : today.getDay();
@@ -109,7 +105,6 @@ function scheduleNextDayReset() {
 }
 scheduleNextDayReset();
 
-// ── Тема ────────────────────────────────────────────────
 function applyTheme(theme) {
   document.documentElement.classList.toggle('light', theme === 'light');
   document.body.classList.toggle('light', theme === 'light');
@@ -123,7 +118,6 @@ themeToggleBtn.addEventListener('click', () => {
   applyTheme(currentTheme);
 });
 
-// ── Форма поїздки ───────────────────────────────────
 function getPaymentValue() {
   const checked = form.querySelector('input[name="payment"]:checked');
   return checked ? checked.value : 'cash';
@@ -182,20 +176,6 @@ document.querySelectorAll('.quick-tip-btn').forEach((btn) => {
   btn.addEventListener('click', () => { tipInput.value = btn.dataset.val; });
 });
 
-// ── Голосовий ввід ──────────────────────────────────
-const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (SpeechRecognitionCtor && micBtn) {
-  const recognition = new SpeechRecognitionCtor();
-  recognition.lang = 'uk-UA';
-  recognition.interimResults = false;
-  micBtn.addEventListener('click', () => { try { recognition.start(); } catch (e) { console.error(e); } });
-  recognition.onresult = (e) => {
-    const match = e.results[0][0].transcript.replace(',', '.').match(/\d+(\.\d+)?/);
-    if (match) amountInput.value = match[0];
-  };
-} else if (micBtn) { micBtn.style.display = 'none'; }
-
-// ── Firebase ──────────────────────────────────────────────
 tripsRef.orderBy('createdAt', 'desc').limit(1000).onSnapshot((snapshot) => {
   allTrips = snapshot.docs.map((doc) => {
     const data = doc.data();
@@ -229,7 +209,6 @@ expenseForm.addEventListener('submit', async (e) => {
   expenseAmount.value = '';
 });
 
-// ── Пробіг ────────────────────────────────────────────────
 if (saveKmBtn) {
   saveKmBtn.addEventListener('click', async () => {
     const km = Number(kmInput.value) || 0;
@@ -246,7 +225,6 @@ if (saveKmBtn) {
   });
 }
 
-// ── Render ───────────────────────────────────────────────
 function sumRange(from, to) {
   return allTrips
     .filter((t) => !t.kmOnly && t.dateKey >= from && t.dateKey <= to)
@@ -321,7 +299,6 @@ function render() {
   renderCompare();
 }
 
-// ── Tesla ────────────────────────────────────────────────
 function renderTesla() {
   const totalKm = allTrips.reduce((s, t) => s + (t.km || 0), 0);
   const gasCost = (totalKm / 100) * GAS_CONSUMPTION_PER_100KM * GAS_PRICE_PER_LITER;
@@ -330,7 +307,6 @@ function renderTesla() {
   teslaSavingsEl.textContent = Math.max(0, gasCost - evCost).toFixed(0) + ' грн';
 }
 
-// ── Heatmap з датами ────────────────────────────────────────
 const DOW_LABELS    = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
 const BUCKET_LABELS = ['Ранок', 'День', 'Вечір'];
 
@@ -351,17 +327,13 @@ function renderHeatmap() {
     if (bucket === null) return;
     grid[dow][bucket] += t.total;
   });
-
   let max = 0;
   grid.forEach((row) => row.forEach((v) => { if (v > max) max = v; }));
-
   const weekDates = getWeekDates();
   const todayStr  = dateKeyOf(new Date());
-
   let html = '<div class="heatmap-grid">';
   html += '<div class="heatmap-cell heatmap-label"></div>';
   BUCKET_LABELS.forEach((b) => { html += `<div class="heatmap-cell heatmap-label">${b}</div>`; });
-
   grid.forEach((row, i) => {
     const d = weekDates[i];
     const dateStr = dateKeyOf(d);
@@ -383,7 +355,6 @@ function renderHeatmap() {
   heatmapEl.innerHTML = html;
 }
 
-// ── Range ────────────────────────────────────────────────
 function renderRange() {
   const from = rangeFrom.value, to = rangeTo.value;
   if (!from && !to) { rangeTotalEl.textContent = '0 грн'; rangeCountEl.textContent = '0'; return; }
@@ -399,7 +370,6 @@ function renderRange() {
 rangeFrom.addEventListener('change', renderRange);
 rangeTo.addEventListener('change', renderRange);
 
-// ── Compare ─────────────────────────────────────────────
 function compareBadge(current, previous) {
   if (previous === 0) return current > 0 ? '<span class="badge up">▲</span>' : '';
   const pct = ((current - previous) / previous) * 100;
@@ -417,18 +387,14 @@ function renderCompare() {
   monthCompareEl.innerHTML = compareBadge(sumRange(monthStart, today), sumRange(prevMonthStart, prevMonthEnd));
 }
 
-// ── PDF — є дати у вибірці → звіт за той період, немає → за сьогодні
 exportPdfBtn.addEventListener('click', async () => {
   const oldText = exportPdfBtn.textContent;
   exportPdfBtn.textContent = 'Генерація...';
   exportPdfBtn.disabled = true;
-
   const from = rangeFrom.value;
   const to   = rangeTo.value;
   const isRange = from || to;
-
   let reportTrips, reportExpenses, reportTitle, reportPeriod, fname;
-
   if (isRange) {
     reportTrips = allTrips.filter((t) => {
       if (t.kmOnly) return false;
@@ -452,7 +418,6 @@ exportPdfBtn.addEventListener('click', async () => {
     reportTitle    = 'Звіт за день';
     fname = 'zvit-' + today + '.pdf';
   }
-
   const total      = reportTrips.reduce((s, t) => s + t.total, 0);
   const fare       = reportTrips.reduce((s, t) => s + t.amount, 0);
   const tips       = reportTrips.reduce((s, t) => s + t.tip, 0);
@@ -460,7 +425,6 @@ exportPdfBtn.addEventListener('click', async () => {
   const expenses   = reportExpenses.reduce((s, x) => s + x.amount, 0);
   const commission = (fare * commissionPercent) / 100;
   const net        = total - commission - expenses;
-
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
