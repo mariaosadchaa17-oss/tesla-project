@@ -1,3 +1,17 @@
+const admin = require('firebase-admin');
+
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n')
+    })
+  });
+}
+
+const db = admin.firestore();
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     res.status(200).send('ok');
@@ -5,9 +19,6 @@ module.exports = async (req, res) => {
   }
 
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const projectId = 'tesla-project-927d5';
-  const apiKey = 'AIzaSyAxaxDHu_iFSPIDTQA7shlLq6H7XuNke6w';
-
   const update = req.body;
   const message = update && update.message;
 
@@ -70,34 +81,16 @@ module.exports = async (req, res) => {
     const now = new Date();
     const dateKey = now.toISOString().slice(0, 10);
 
-    const body = {
-      fields: {
-        amount: { doubleValue: amount },
-        tip: { doubleValue: tip },
-        total: { doubleValue: amount + tip },
-        km: { doubleValue: km },
-        paymentMethod: { stringValue: paymentMethod },
-        dateKey: { stringValue: dateKey },
-        createdAt: { timestampValue: now.toISOString() },
-        source: { stringValue: 'telegram' }
-      }
-    };
-
-    const firestoreResp = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/trips?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      }
-    );
-
-    if (!firestoreResp.ok) {
-      const errText = await firestoreResp.text();
-      await reply('Помилка збереження: ' + errText.slice(0, 300));
-      res.status(200).send('ok');
-      return;
-    }
+    await db.collection('trips').add({
+      amount,
+      tip,
+      total: amount + tip,
+      km,
+      paymentMethod,
+      dateKey,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      source: 'telegram'
+    });
 
     const paymentLabel = paymentMethod === 'card' ? 'картка' : 'готівка';
     await reply(`Записано: ${amount} грн + ${tip} чайових = ${amount + tip} грн (${paymentLabel})`);
@@ -105,7 +98,7 @@ module.exports = async (req, res) => {
     res.status(200).send('ok');
   } catch (err) {
     try {
-      await reply('Сталася помилка: ' + String(err).slice(0, 200));
+      await reply('Сталася помилка: ' + String(err).slice(0, 300));
     } catch (e) {}
     res.status(200).send('ok');
   }
