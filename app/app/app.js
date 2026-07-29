@@ -1,255 +1,105 @@
-:root {
-  --bg: #0b0d0f;
-  --surface: #16191c;
-  --surface-2: #1f2428;
-  --text: #f2f3f4;
-  --text-muted: #8b9299;
-  --accent: #4f83f7;
-  --charge: #34d399;
-  --tip: #f2b705;
-  --radius: 14px;
+const firebaseConfig = {
+  apiKey: "AIzaSyAxaxDHu_iFSPIDTQA7shlLq6H7XuNke6w",
+  authDomain: "tesla-project-927d5.firebaseapp.com",
+  projectId: "tesla-project-927d5",
+  storageBucket: "tesla-project-927d5.firebasestorage.app",
+  messagingSenderId: "210350219263",
+  appId: "1:210350219263:web:711747b3886497d41a91ca"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const tripsRef = db.collection('trips');
+
+const form = document.getElementById('trip-form');
+const amountInput = document.getElementById('amount');
+const tipInput = document.getElementById('tip');
+const historyList = document.getElementById('history-list');
+const todayTotalEl = document.getElementById('today-total');
+const todayTipsEl = document.getElementById('today-tips');
+const todayCountEl = document.getElementById('today-count');
+const chargeFill = document.getElementById('charge-fill');
+const chargeLabel = document.getElementById('charge-label');
+const goalInput = document.getElementById('goal-input');
+const goalForm = document.getElementById('goal-form');
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
 }
 
-* { box-sizing: border-box; }
+let goal = Number(localStorage.getItem('dailyGoal')) || 3000;
+goalInput.value = goal;
 
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Inter', sans-serif;
-  -webkit-font-smoothing: antialiased;
+goalForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  goal = Number(goalInput.value) || 0;
+  localStorage.setItem('dailyGoal', goal);
+  render();
+});
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const amount = Number(amountInput.value) || 0;
+  const tip = Number(tipInput.value) || 0;
+  if (amount <= 0 && tip <= 0) return;
+
+  await tripsRef.add({
+    amount,
+    tip,
+    total: amount + tip,
+    dateKey: todayKey(),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  amountInput.value = '';
+  tipInput.value = '';
+  amountInput.focus();
+});
+
+let allTrips = [];
+
+tripsRef.orderBy('createdAt', 'desc').limit(200).onSnapshot((snapshot) => {
+  allTrips = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  render();
+});
+
+async function deleteTrip(id) {
+  await tripsRef.doc(id).delete();
 }
 
-.app {
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 24px 20px 60px;
-}
+function render() {
+  const today = todayKey();
+  const todayTrips = allTrips.filter((t) => t.dateKey === today);
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 20px;
-}
+  const totalSum = todayTrips.reduce((s, t) => s + t.total, 0);
+  const tipsSum = todayTrips.reduce((s, t) => s + t.tip, 0);
 
-.header h1 {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 26px;
-  margin: 0;
-}
+  todayTotalEl.textContent = totalSum.toFixed(0);
+  todayTipsEl.textContent = tipsSum.toFixed(0);
+  todayCountEl.textContent = todayTrips.length;
 
-.date {
-  color: var(--text-muted);
-  font-size: 14px;
-  text-transform: capitalize;
-}
+  const pct = goal > 0 ? Math.min(100, Math.round((totalSum / goal) * 100)) : 0;
+  chargeFill.style.width = pct + '%';
+  chargeLabel.textContent = pct + '% від цілі ' + goal + ' грн';
 
-.charge-card {
-  background: var(--surface);
-  border-radius: var(--radius);
-  padding: 20px;
-  margin-bottom: 16px;
-}
+  historyList.innerHTML = '';
+  todayTrips.forEach((t) => {
+    const li = document.createElement('li');
+    li.className = 'history-item';
+    const time = t.createdAt
+      ? t.createdAt.toDate().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })
+      : '--:--';
+    li.innerHTML = `
+      <span class="history-time">${time}</span>
+      <span class="history-amounts">${t.amount} грн <span class="history-tip">+${t.tip} чай</span></span>
+      <span class="history-total">${t.total} грн</span>
+      <button class="delete-btn" aria-label="Видалити запис">×</button>
+    `;
+    li.querySelector('.delete-btn').addEventListener('click', () => deleteTrip(t.id));
+    historyList.appendChild(li);
+  });
 
-.charge-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.charge-icon { font-size: 20px; }
-
-.charge-total {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 32px;
-}
-
-.charge-track {
-  background: var(--surface-2);
-  border-radius: 999px;
-  height: 10px;
-  overflow: hidden;
-}
-
-.charge-fill {
-  background: var(--charge);
-  height: 100%;
-  width: 0%;
-  border-radius: 999px;
-  transition: width 0.4s ease;
-}
-
-.charge-label {
-  margin-top: 8px;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.stats-row {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.stat {
-  flex: 1;
-  background: var(--surface);
-  border-radius: var(--radius);
-  padding: 14px;
-  text-align: center;
-}
-
-.stat-value {
-  display: block;
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 22px;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.trip-form {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-}
-
-.field {
-  flex: 1;
-  min-width: 120px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.field label {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.field input {
-  background: var(--surface);
-  border: 1px solid var(--surface-2);
-  border-radius: 10px;
-  padding: 12px;
-  color: var(--text);
-  font-size: 18px;
-  width: 100%;
-}
-
-.field input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.save-btn {
-  flex-basis: 100%;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 14px;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.save-btn:active { opacity: 0.85; }
-
-.history h2 {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--text-muted);
-  margin-bottom: 10px;
-}
-
-.history-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.history-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--surface);
-  border-radius: 10px;
-  padding: 12px 14px;
-  font-size: 14px;
-}
-
-.history-time {
-  color: var(--text-muted);
-  width: 48px;
-}
-
-.history-amounts {
-  flex: 1;
-  text-align: left;
-  margin-left: 8px;
-}
-
-.history-tip { color: var(--tip); }
-
-.history-total {
-  font-weight: 500;
-  margin-right: 8px;
-}
-
-.delete-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 18px;
-  cursor: pointer;
-  padding: 0 4px;
-}
-
-.empty {
-  color: var(--text-muted);
-  font-size: 14px;
-  text-align: center;
-  padding: 16px 0;
-}
-
-.settings {
-  margin-top: 24px;
-  color: var(--text-muted);
-  font-size: 14px;
-}
-
-.goal-form {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.goal-form input {
-  flex: 1;
-  background: var(--surface);
-  border: 1px solid var(--surface-2);
-  border-radius: 10px;
-  padding: 10px;
-  color: var(--text);
-}
-
-.goal-form button {
-  background: var(--surface-2);
-  border: none;
-  border-radius: 10px;
-  padding: 10px 14px;
-  color: var(--text);
-  cursor: pointer;
+  if (todayTrips.length === 0) {
+    historyList.innerHTML = '<li class="empty">Поки немає замовлень за сьогодні</li>';
+  }
 }
