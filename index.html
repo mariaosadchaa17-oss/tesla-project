@@ -33,18 +33,19 @@
       </div>
     </header>
 
-    <div class="card">
-      <div class="card-row">
-        <span id="shift-status">Зміну не розпочато</span>
-        <button id="shift-btn" class="shift-btn">Почати зміну</button>
+    <!-- Зміна — компактна -->
+    <div class="shift-card">
+      <div class="shift-card-row">
+        <span id="shift-status" class="shift-status-text">Зміну не розпочато</span>
+        <button id="shift-btn" class="shift-btn-small">Почати зміну</button>
       </div>
-      <div class="card-row" id="shift-rate-row" style="display: none; margin-top: 8px;">
-        <span>Середній заробіток:</span>
-        <span id="shift-rate" class="card-value positive">0 грн/год</span>
+      <div class="card-row" id="shift-rate-row" style="display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--surface-2);">
+        <span style="font-size:13px;">Середній заробіток:</span>
+        <span id="shift-rate" class="card-value positive" style="font-size:15px;">0 грн/год</span>
       </div>
     </div>
 
-    <!-- Загальна сума + комісія під нею -->
+    <!-- Загальна сума + комісія -->
     <div class="charge-card">
       <div class="charge-top">
         <span class="charge-icon">⚡</span>
@@ -54,7 +55,6 @@
       <div class="charge-label">
         Чайові: <strong id="today-tips">0</strong> грн | Замовлень: <strong id="today-count">0</strong>
       </div>
-      <!-- Комісія прямо під загальною сумою -->
       <div class="commission-inline">
         <div class="commission-inline-row">
           <span class="commission-inline-label">Комісія Uklon</span>
@@ -80,6 +80,7 @@
       </div>
     </div>
 
+    <!-- Форма: сума + чайові + тип оплати (без пробігу) -->
     <form id="trip-form" class="trip-form">
       <div class="field">
         <label for="amount">Сума замовлення</label>
@@ -99,12 +100,7 @@
         </div>
       </div>
 
-      <div class="field">
-        <label for="km">Пробіг (км)</label>
-        <input type="number" id="km" placeholder="0" pattern="[0-9]*" inputmode="decimal" />
-      </div>
-
-      <div class="field">
+      <div class="field field--full">
         <label>Тип оплати</label>
         <div class="payment-options">
           <label><input type="radio" name="payment" value="cash" checked /> 💵 Готівка</label>
@@ -152,6 +148,7 @@
       <ul id="expense-list" class="history-list" style="margin-top: 10px;"></ul>
     </div>
 
+    <!-- Пробіг перенесено сюди -->
     <div class="card">
       <h3>Економія на Tesla</h3>
       <div class="card-row">
@@ -161,6 +158,12 @@
       <div class="card-row">
         <span>Збережено (vs бензин):</span>
         <span id="tesla-savings" class="card-value positive">0 грн</span>
+      </div>
+      <!-- Поле пробігу тут -->
+      <div class="card-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--surface-2);">
+        <label for="km" style="font-size:14px;">Додати пробіг (км)</label>
+        <input type="number" id="km" placeholder="0" pattern="[0-9]*" inputmode="decimal"
+          style="width:100px; background:var(--surface-2); border:1px solid var(--surface-2); border-radius:10px; padding:8px 10px; color:var(--text); font-size:16px; text-align:right;" />
       </div>
     </div>
 
@@ -185,9 +188,8 @@
       </div>
     </div>
 
-    <div class="card-row" style="gap: 10px; margin-top: 20px;">
-      <button id="export-csv-btn" class="shift-btn secondary-btn">📥 CSV</button>
-      <button id="export-pdf-btn" class="shift-btn">📄 PDF Звіт</button>
+    <div style="margin-top: 20px;">
+      <button id="export-pdf-btn" class="shift-btn" style="width:100%;">📄 PDF Звіт</button>
     </div>
   </div>
 
@@ -200,7 +202,6 @@
       });
     }
 
-    // Zoom control
     const ZOOM_STEPS = [70, 80, 90, 100, 110, 120, 130, 150];
     let zoomIdx = ZOOM_STEPS.indexOf(Number(localStorage.getItem('appZoom')) || 100);
     if (zoomIdx < 0) zoomIdx = 3;
