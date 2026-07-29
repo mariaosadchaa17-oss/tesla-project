@@ -1,245 +1,222 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#0b0d0f">
-<link rel="manifest" href="manifest.json">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Улік поїздок | Uklon Tesla</title>
+  
+  <!-- Шрифти Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 
-<!-- Додано для підтримки iOS (iPhone) -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Заробіток">
-<link rel="apple-touch-icon" href="icon.svg">
+  <!-- Стилі -->
+  <link rel="stylesheet" href="styles.css" />
 
-<title>Заробіток — облік поїздок</title>
-<link rel="stylesheet" href="style.css">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Firebase SDK (v8) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+  <!-- Бібліотеки для генерації PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
-<div class="app">
-  <header class="header">
-    <h1>Заробіток</h1>
-    <div class="header-right">
-      <span class="date" id="current-date"></span>
-      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Змінити тему">☀️</button>
-    </div>
-  </header>
+  <div class="app">
+    <!-- Хедер -->
+    <header class="header">
+      <div>
+        <h1>Tesla Trip Log</h1>
+        <div class="date" id="current-date">Сьогодні</div>
+      </div>
+      <div class="header-right">
+        <button id="theme-toggle" class="theme-toggle" title="Змінити тему">☀️</button>
+      </div>
+    </header>
 
-  <section class="charge-card">
-    <div class="charge-top">
-      <span class="charge-icon">⚡</span>
-      <span class="charge-total"><span id="today-total">0</span> грн</span>
-    </div>
-    <div class="charge-label">Зароблено сьогодні (брутто)</div>
-  </section>
-
-  <section class="stats-row">
-    <div class="stat">
-      <span class="stat-value" id="today-count">0</span>
-      <span class="stat-label">поїздок</span>
-    </div>
-    <div class="stat">
-      <span class="stat-value" id="today-tips">0</span>
-      <span class="stat-label">чайових, грн</span>
-    </div>
-  </section>
-
-  <form id="trip-form" class="trip-form">
-    <div class="field">
-      <label for="amount">Сума поїздки</label>
-      <div class="amount-row">
-        <input type="number" id="amount" inputmode="decimal" placeholder="0" min="0" step="1">
-        <button type="button" id="mic-btn" class="mic-btn" aria-label="Голосовий ввід">🎤</button>
+    <!-- Зміна (Години роботи) -->
+    <div class="card">
+      <div class="card-row">
+        <span id="shift-status">Зміну не розпочато</span>
+        <button id="shift-btn" class="shift-btn">Почати зміну</button>
+      </div>
+      <div class="card-row" id="shift-rate-row" style="display: none; margin-top: 8px;">
+        <span>Середній заробіток:</span>
+        <span id="shift-rate" class="card-value positive">0 грн/год</span>
       </div>
     </div>
-    <div class="field">
-      <label for="tip">Чайові</label>
-      <input type="number" id="tip" inputmode="decimal" placeholder="0" min="0" step="1">
-      <div class="quick-tips">
-        <button type="button" class="quick-tip-btn" data-val="20">20</button>
-        <button type="button" class="quick-tip-btn" data-val="50">50</button>
-        <button type="button" class="quick-tip-btn" data-val="100">100</button>
+
+    <!-- Заробіток за сьогодні -->
+    <div class="charge-card">
+      <div class="charge-top">
+        <span class="charge-icon">⚡</span>
+        <span class="charge-total" id="today-total">0</span>
+        <span class="charge-total">грн</span>
+      </div>
+      <div class="charge-label">
+        Чайові: <strong id="today-tips">0</strong> грн | Замовлень: <strong id="today-count">0</strong>
       </div>
     </div>
-    <div class="field">
-      <label for="km">Пробіг, км (не обов'язково)</label>
-      <input type="number" id="km" inputmode="decimal" placeholder="0" min="0" step="1">
-    </div>
-    <div class="field payment-field">
-      <label>Оплата</label>
-      <div class="payment-options">
-        <label><input type="radio" name="payment" value="cash" checked> Готівка</label>
-        <label><input type="radio" name="payment" value="card"> Картка</label>
+
+    <!-- Чистий прибуток та комісія -->
+    <div class="card">
+      <h3>Фінансовий розрахунок</h3>
+      <div class="card-row">
+        <span>Комісія Uklon (%)</span>
+        <input type="number" id="commission-input" class="inline-input" value="15" />
+      </div>
+      <div class="card-row">
+        <span>Комісія сума:</span>
+        <span id="today-commission" class="card-value negative">0 грн</span>
+      </div>
+      <div class="card-row">
+        <span>Витрати:</span>
+        <span id="today-expenses" class="card-value negative">0 грн</span>
+      </div>
+      <div class="card-row" style="margin-top: 8px; border-top: 1px solid var(--surface-2); padding-top: 8px;">
+        <strong>Чистий прибуток:</strong>
+        <span id="today-net" class="card-value positive">0 грн</span>
       </div>
     </div>
-    <button type="submit" class="save-btn" id="save-trip-btn">Зберегти</button>
-    <button type="button" class="cancel-edit-btn" id="cancel-edit-btn" style="display:none">Скасувати редагування</button>
-  </form>
 
-  <section class="history">
-    <h2>Сьогодні</h2>
-    <ul id="history-list" class="history-list"></ul>
-  </section>
+    <!-- Статистика за період -->
+    <div class="stats-row">
+      <div class="stat">
+        <span class="stat-value" id="week-total">0</span>
+        <span class="stat-label">7 днів (грн)</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="month-total">0</span>
+        <span class="stat-label">30 днів (грн)</span>
+      </div>
+    </div>
 
-  <section class="stats-row">
-    <div class="stat">
-      <span class="stat-value" id="week-total">0</span>
-      <span class="stat-label">грн за тиждень</span>
-    </div>
-    <div class="stat">
-      <span class="stat-value" id="month-total">0</span>
-      <span class="stat-label">грн за місяць</span>
-    </div>
-  </section>
+    <!-- Форма додавання поїздки -->
+    <form id="trip-form" class="trip-form">
+      <div class="field">
+        <label for="amount">Сума замовлення</label>
+        <div class="amount-row">
+          <input type="number" id="amount" placeholder="0" pattern="[0-9]*" inputmode="decimal" required />
+          <button type="button" id="mic-btn" class="mic-btn" title="Голосовий ввід">🎤</button>
+        </div>
+      </div>
 
-  <section class="card">
-    <h3>Чистий прибуток сьогодні</h3>
-    <div class="card-row">
-      <span>Комісія Uklon, %</span>
-      <input type="number" id="commission-input" class="inline-input" min="0" max="100" step="1" value="15">
-    </div>
-    <div class="card-row">
-      <span>Комісія сьогодні</span>
-      <span class="card-value negative" id="today-commission">0 грн</span>
-    </div>
-    <div class="card-row">
-      <span>Витрати сьогодні</span>
-      <span class="card-value negative" id="today-expenses">0 грн</span>
-    </div>
-    <div class="card-row">
-      <span>Прибуток після комісії і витрат</span>
-      <span class="card-value positive" id="today-net">0 грн</span>
-    </div>
-  </section>
+      <div class="field">
+        <label for="tip">Чайові</label>
+        <input type="number" id="tip" placeholder="0" pattern="[0-9]*" inputmode="decimal" />
+        <div class="quick-tips">
+          <button type="button" class="quick-tip-btn" data-val="10">+10</button>
+          <button type="button" class="quick-tip-btn" data-val="20">+20</button>
+          <button type="button" class="quick-tip-btn" data-val="50">+50</button>
+        </div>
+      </div>
 
-  <section class="card">
-    <h3>Зміна</h3>
-    <div class="card-row">
-      <span id="shift-status">Зміну не розпочато</span>
-      <button id="shift-btn" class="shift-btn" type="button">Почати зміну</button>
-    </div>
-    <div class="card-row" id="shift-rate-row" style="display:none">
-      <span>Заробіток за годину</span>
-      <span class="card-value" id="shift-rate">0 грн/год</span>
-    </div>
-  </section>
+      <div class="field">
+        <label for="km">Пробіг (км)</label>
+        <input type="number" id="km" placeholder="0" pattern="[0-9]*" inputmode="decimal" />
+      </div>
 
-  <section class="card">
-    <h3>Податки (ФОП 2 група)</h3>
-    <div class="card-row">
-      <span>Єдиний податок</span>
-      <span class="card-value" id="tax-unified">0 грн</span>
-    </div>
-    <div class="card-row">
-      <span>Військовий збір</span>
-      <span class="card-value" id="tax-military">0 грн</span>
-    </div>
-    <div class="card-row">
-      <span>Разом до 20 числа</span>
-      <span class="card-value negative" id="tax-total">0 грн</span>
-    </div>
-    <div class="card-row">
-      <span id="tax-status-label">Ще не сплачено за цей місяць</span>
-      <button id="tax-paid-btn" class="shift-btn" type="button">Позначити сплачено</button>
-    </div>
-  </section>
+      <div class="field" style="flex-basis: 100%;">
+        <label>Тип оплати</label>
+        <div class="payment-options">
+          <label><input type="radio" name="payment" value="cash" checked /> 💵 Готівка</label>
+          <label><input type="radio" name="payment" value="card" /> 💳 Картка</label>
+        </div>
+      </div>
 
-  <section class="card">
-    <h3>Витрати</h3>
-    <form id="expense-form" class="expense-form">
-      <select id="expense-category">
-        <option value="Паливо/зарядка">Паливо/зарядка</option>
-        <option value="Мийка">Мийка</option>
-        <option value="Парковка">Парковка</option>
-        <option value="Інше">Інше</option>
-      </select>
-      <input type="number" id="expense-amount" placeholder="Сума, грн" min="0" step="1">
-      <button type="submit">Додати витрату</button>
+      <button type="submit" class="save-btn">Зберегти поїздку</button>
     </form>
-    <ul id="expense-list" class="history-list"></ul>
-  </section>
 
-  <section class="card">
-    <h3>⚡ Економія на паливі</h3>
-    <div class="card-row">
-      <span>Пробіг всього</span>
-      <span class="card-value" id="tesla-km">0 км</span>
+    <!-- Історія поїздок -->
+    <div class="history">
+      <h2>Сьогоднішні поїздки</h2>
+      <ul id="history-list" class="history-list">
+        <li class="empty">Завантаження...</li>
+      </ul>
     </div>
-    <div class="card-row">
-      <span>Заощаджено проти бензинового авто</span>
-      <span class="card-value positive" id="tesla-savings">0 грн</span>
-    </div>
-  </section>
 
-  <section class="card">
-    <h3>Активність за часом і днем</h3>
-    <div id="heatmap"></div>
-  </section>
-
-  <section class="card">
-    <h3>Графік за 7 днів і порівняння</h3>
-    <div id="week-chart" class="bar-chart"></div>
-    <div class="compare-row">
-      <span>Цей тиждень порівняно з минулим</span>
-      <span id="week-compare"></span>
+    <!-- Витрати -->
+    <div class="card" style="margin-top: 24px;">
+      <h3>Додати витрату (Зарядка / Мийка)</h3>
+      <form id="expense-form" class="expense-form">
+        <select id="expense-category">
+          <option value="Зарядка">🔋 Зарядка</option>
+          <option value="Мийка">🧽 Мийка</option>
+          <option value="Омивач">🚗 Омивач / Дрібниці</option>
+          <option value="Інше">🛠️ Інше</option>
+        </select>
+        <input type="number" id="expense-amount" placeholder="Сума грн" required />
+        <button type="submit">Додати витрату</button>
+      </form>
+      <ul id="expense-list" class="history-list" style="margin-top: 10px;"></ul>
     </div>
-    <div class="compare-row">
-      <span>Цей місяць порівняно з минулим</span>
-      <span id="month-compare"></span>
-    </div>
-  </section>
 
-  <section class="card">
-    <h3>Довільний період</h3>
-    <div class="expense-form">
-      <input type="date" id="range-from">
-      <input type="date" id="range-to">
+    <!-- Екологія / Економія Tesla -->
+    <div class="card">
+      <h3>Економія на Tesla</h3>
+      <div class="card-row">
+        <span>Загальний пробіг:</span>
+        <span id="tesla-km" class="card-value">0 км</span>
+      </div>
+      <div class="card-row">
+        <span>Збережено vs Бензин:</span>
+        <span id="tesla-savings" class="card-value positive">0 грн</span>
+      </div>
     </div>
-    <div class="card-row">
-      <span>Сума</span>
-      <span class="card-value" id="range-total">0 грн</span>
+
+    <!-- Фільтр за період -->
+    <div class="card">
+      <h3>Вибірка за датами</h3>
+      <div class="card-row">
+        <input type="date" id="range-from" class="inline-input" style="width: 48%;" />
+        <input type="date" id="range-to" class="inline-input" style="width: 48%;" />
+      </div>
+      <div class="card-row" style="margin-top: 8px;">
+        <span>Разом за період:</span>
+        <span id="range-total" class="card-value positive">0 грн</span>
+      </div>
+      <div class="card-row">
+        <span>Поїздок:</span>
+        <span id="range-count" class="card-value">0</span>
+      </div>
     </div>
-    <div class="card-row">
-      <span>Поїздок</span>
-      <span class="card-value" id="range-count">0</span>
+
+    <!-- Експорт -->
+    <div class="card-row" style="gap: 10px; margin-top: 20px;">
+      <button id="export-csv-btn" class="shift-btn" style="flex: 1; background: var(--surface-2); color: var(--text);">📥 CSV (Excel)</button>
+      <button id="export-pdf-btn" class="shift-btn" style="flex: 1;">📄 PDF Звіт</button>
     </div>
-  </section>
+  </div>
 
-  <section class="card">
-    <h3>Звіт і експорт</h3>
-    <button id="export-pdf-btn" class="shift-btn" type="button" style="margin-right:8px">PDF-звіт</button>
-    <button id="export-csv-btn" class="shift-btn" type="button">CSV всіх поїздок</button>
-  </section>
-</div>
+  <!-- Прихований контейнер для генерації PDF -->
+  <div id="pdf-report" style="display: none;">
+    <h2 style="margin-bottom: 5px;">Звіт поїздок Uklon Tesla</h2>
+    <p id="pdf-date" style="color: #666; margin-bottom: 20px;"></p>
+    <hr style="border: 0; border-top: 1px solid #ccc; margin-bottom: 20px;" />
+    <p id="pdf-today" style="font-size: 16px; font-weight: bold; margin: 8px 0;"></p>
+    <p id="pdf-tips" style="margin: 8px 0;"></p>
+    <p id="pdf-expenses" style="margin: 8px 0;"></p>
+    <p id="pdf-commission" style="margin: 8px 0;"></p>
+    <p id="pdf-net" style="font-size: 16px; font-weight: bold; color: #008000; margin: 12px 0;"></p>
+    <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;" />
+    <p id="pdf-week" style="margin: 8px 0;"></p>
+    <p id="pdf-month" style="margin: 8px 0;"></p>
+  </div>
 
-<div id="pdf-report" class="pdf-report">
-  <h2>Звіт по заробітку</h2>
-  <p id="pdf-date"></p>
-  <p id="pdf-today"></p>
-  <p id="pdf-tips"></p>
-  <p id="pdf-week"></p>
-  <p id="pdf-month"></p>
-  <p id="pdf-expenses"></p>
-  <p id="pdf-commission"></p>
-  <p id="pdf-net"></p>
-</div>
+  <!-- Скрипт додатка -->
+  <script src="app.js"></script>
 
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="app.js"></script>
-<script>
-document.getElementById('current-date').textContent =
-  new Date().toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  });
-}
-</script>
+  <script>
+    // Встановлення поточної дати в хедері
+    const dateEl = document.getElementById('current-date');
+    if (dateEl) {
+      dateEl.textContent = new Date().toLocaleDateString('uk-UA', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short'
+      });
+    }
+  </script>
 </body>
 </html>
