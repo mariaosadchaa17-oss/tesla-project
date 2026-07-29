@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 
   <!-- Стилі -->
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="style.css" />
 
   <!-- Firebase SDK (v8) -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -187,21 +187,6 @@
       <button id="export-csv-btn" class="shift-btn" style="flex: 1; background: var(--surface-2); color: var(--text);">📥 CSV (Excel)</button>
       <button id="export-pdf-btn" class="shift-btn" style="flex: 1;">📄 PDF Звіт</button>
     </div>
-  </div>
-
-  <!-- Прихований контейнер для генерації PDF -->
-  <div id="pdf-report" style="display: none;">
-    <h2 style="margin-bottom: 5px;">Звіт поїздок Uklon Tesla</h2>
-    <p id="pdf-date" style="color: #666; margin-bottom: 20px;"></p>
-    <hr style="border: 0; border-top: 1px solid #ccc; margin-bottom: 20px;" />
-    <p id="pdf-today" style="font-size: 16px; font-weight: bold; margin: 8px 0;"></p>
-    <p id="pdf-tips" style="margin: 8px 0;"></p>
-    <p id="pdf-expenses" style="margin: 8px 0;"></p>
-    <p id="pdf-commission" style="margin: 8px 0;"></p>
-    <p id="pdf-net" style="font-size: 16px; font-weight: bold; color: #008000; margin: 12px 0;"></p>
-    <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;" />
-    <p id="pdf-week" style="margin: 8px 0;"></p>
-    <p id="pdf-month" style="margin: 8px 0;"></p>
   </div>
 
   <!-- Скрипт додатка -->

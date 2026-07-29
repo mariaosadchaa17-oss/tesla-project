@@ -10,9 +10,7 @@
   --radius: 14px;
 }
 
-/* Підтримка двох варіантів назви класу для світлої теми */
-body.light,
-body.light-theme {
+body.light {
   --bg: #f5f6f4;
   --surface: #ffffff;
   --surface-2: #eceeea;
@@ -400,7 +398,28 @@ body {
   cursor: pointer;
 }
 
-/* Приховати шаблон генерації PDF від відображення в інтерфейсі */
-#pdf-report {
-  display: none;
+.heatmap {
+  display: grid;
+  grid-template-columns: 30px repeat(4, 1fr);
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.heatmap-cell {
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 11px;
+  text-align: center;
+  background: var(--surface-2);
+  color: #fff; /* Make text white */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+}
+
+.heatmap-label {
+  background: none !important;
+  color: var(--text-muted) !important;
+  font-weight: 500;
 }

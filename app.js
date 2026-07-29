@@ -73,14 +73,6 @@ const rangeCountEl = document.getElementById('range-count');
 const exportPdfBtn = document.getElementById('export-pdf-btn');
 const exportCsvBtn = document.getElementById('export-csv-btn');
 const themeToggleBtn = document.getElementById('theme-toggle');
-const lockBtn = document.getElementById('lock-btn');
-const pinOverlay = document.getElementById('pin-overlay');
-const pinInput = document.getElementById('pin-input');
-const pinSubmitBtn = document.getElementById('pin-submit-btn');
-const pinError = document.getElementById('pin-error');
-const pinSetupForm = document.getElementById('pin-setup-form');
-const pinSetupInput = document.getElementById('pin-setup-input');
-const pinRemoveBtn = document.getElementById('pin-remove-btn');
 const micBtn = document.getElementById('mic-btn');
 
 let editingId = null;
@@ -92,10 +84,15 @@ let commissionPercent = Number(localStorage.getItem('uklonCommission')) || 15;
 commissionInput.value = commissionPercent;
 
 function dateKeyOf(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  const d = new Date(date);
+  // Зміщення для врахування нічних поїздок до попереднього дня
+  if (d.getHours() < 4) {
+    d.setDate(d.getDate() - 1);
+  }
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 function todayKey() {
@@ -150,17 +147,23 @@ form.addEventListener('submit', async (e) => {
   if (amount <= 0 && tip <= 0) return;
   const paymentMethod = getPaymentValue();
 
+  const tripData = {
+    amount,
+    tip,
+    total: amount + tip,
+    km,
+    paymentMethod,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  // Встановлюємо dateKey на основі клієнтського часу, але з урахуванням нічної логіки
+  tripData.dateKey = dateKeyOf(new Date());
+
   if (editingId) {
-    await tripsRef.doc(editingId).update({
-      amount, tip, total: amount + tip, km, paymentMethod
-    });
+    await tripsRef.doc(editingId).update(tripData);
     stopEditing();
   } else {
-    await tripsRef.add({
-      amount, tip, total: amount + tip, km, paymentMethod,
-      dateKey: todayKey(),
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    await tripsRef.add(tripData);
   }
 
   amountInput.value = '';
@@ -206,7 +209,7 @@ if (SpeechRecognitionCtor && micBtn) {
   recognition.lang = 'uk-UA';
   recognition.interimResults = false;
   micBtn.addEventListener('click', () => {
-    try { recognition.start(); } catch (e) {}
+    try { recognition.start(); } catch (e) { console.error(e); }
   });
   recognition.onresult = (e) => {
     const transcript = e.results[0][0].transcript;
@@ -217,67 +220,26 @@ if (SpeechRecognitionCtor && micBtn) {
   micBtn.style.display = 'none';
 }
 
-function checkLock() {
-  const savedPin = localStorage.getItem('appPin');
-  if (savedPin && sessionStorage.getItem('unlocked') !== '1') {
-    pinOverlay.classList.remove('hidden');
-  } else {
-    pinOverlay.classList.add('hidden');
-  }
-}
-checkLock();
-
-function submitPin() {
-  if (pinInput.value && pinInput.value === localStorage.getItem('appPin')) {
-    sessionStorage.setItem('unlocked', '1');
-    pinInput.value = '';
-    pinError.textContent = '';
-    checkLock();
-  } else {
-    pinError.textContent = 'Невірний PIN';
-  }
-}
-
-pinSubmitBtn.addEventListener('click', submitPin);
-pinInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') submitPin();
-});
-
-lockBtn.addEventListener('click', () => {
-  if (!localStorage.getItem('appPin')) {
-    alert('Спочатку встанови PIN у розділі "Захист паролем" внизу сторінки');
-    return;
-  }
-  sessionStorage.removeItem('unlocked');
-  checkLock();
-});
-
-pinSetupForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const val = pinSetupInput.value.trim();
-  if (val.length < 4) {
-    alert('PIN має бути мінімум 4 цифри');
-    return;
-  }
-  localStorage.setItem('appPin', val);
-  sessionStorage.setItem('unlocked', '1');
-  pinSetupInput.value = '';
-  alert('PIN встановлено');
-});
-
-pinRemoveBtn.addEventListener('click', () => {
-  localStorage.removeItem('appPin');
-  sessionStorage.removeItem('unlocked');
-  alert('Захист вимкнено');
-});
-
 tripsRef.orderBy('createdAt', 'desc').limit(1000).onSnapshot((snapshot) => {
-  allTrips = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  allTrips = snapshot.docs.map((doc) => {
+    const data = doc.data();
+    // Перераховуємо dateKey на клієнті для старих записів, якщо потрібно
+    if (data.createdAt) {
+      data.dateKey = dateKeyOf(data.createdAt.toDate());
+    }
+    return { id: doc.id, ...data };
+  });
   render();
 });
 
 expensesRef.orderBy('createdAt', 'desc').limit(500).onSnapshot((snapshot) => {
-  allExpenses = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  allExpenses = snapshot.docs.map((doc) => {
+    const data = doc.data();
+    if (data.createdAt) {
+        data.dateKey = dateKeyOf(data.createdAt.toDate());
+    }
+    return { id: doc.id, ...data };
+  });
   render();
 });
 
@@ -497,7 +459,7 @@ function renderTesla() {
 }
 
 const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
-const BUCKET_LABELS = ['Ніч', 'Ранок', 'День', 'Вечір'];
+const BUCKET_LABELS = ['Ніч (0-6)', 'Ранок (6-12)', 'День (12-18)', 'Вечір (18-24)'];
 
 function renderHeatmap() {
   const grid = Array.from({ length: 7 }, () => [0, 0, 0, 0]);
@@ -505,8 +467,15 @@ function renderHeatmap() {
     if (!t.createdAt) return;
     const d = t.createdAt.toDate();
     let dow = d.getDay();
-    dow = dow === 0 ? 6 : dow - 1;
-    const bucket = Math.floor(d.getHours() / 6);
+    dow = dow === 0 ? 6 : dow - 1; // Пн = 0, Нд = 6
+    const hour = d.getHours();
+    
+    // Якщо година до 4 ранку, відносимо до попереднього дня
+    if (hour < 4) {
+      dow = (dow + 6) % 7; // Переміщаємо на день назад (напр. з Пн на Нд)
+    }
+    
+    const bucket = Math.floor(hour / 6);
     grid[dow][bucket] += t.total;
   });
 
@@ -521,8 +490,9 @@ function renderHeatmap() {
   grid.forEach((row, i) => {
     html += `<div class="heatmap-cell heatmap-label">${DOW_LABELS[i]}</div>`;
     row.forEach((v) => {
-      const opacity = max > 0 ? (0.12 + 0.75 * (v / max)).toFixed(2) : 0.08;
-      html += `<div class="heatmap-cell" style="background:rgba(79,131,247,${opacity})" title="${v.toFixed(0)} грн">${v > 0 ? Math.round(v) : ''}</div>`;
+      const opacity = max > 0 ? (0.15 + 0.85 * (v / max)).toFixed(2) : 0.1;
+      const textColor = v > max / 2 ? '#fff' : 'var(--text)';
+      html += `<div class="heatmap-cell" style="background:rgba(79,131,247,${opacity}); color: ${textColor}" title="${v.toFixed(0)} грн">${v > 0 ? Math.round(v) : ''}</div>`;
     });
   });
   html += '</div>';
@@ -590,8 +560,8 @@ function renderCompare() {
   const curMonth = sumRange(monthStart, todayKey());
   const prevMonth = sumRange(prevMonthStart, prevMonthEnd);
 
-  weekCompareEl.innerHTML = compareBadge(curWeek, prevWeek);
-  monthCompareEl.innerHTML = compareBadge(curMonth, prevMonth);
+  weekCompareEl.innerHTML = `Цей тиждень: ${curWeek.toFixed(0)} грн ${compareBadge(curWeek, prevWeek)}`;
+  monthCompareEl.innerHTML = `Цей місяць: ${curMonth.toFixed(0)} грн ${compareBadge(curMonth, prevMonth)}`;
 }
 
 exportPdfBtn.addEventListener('click', async () => {
@@ -600,49 +570,44 @@ exportPdfBtn.addEventListener('click', async () => {
   exportPdfBtn.disabled = true;
 
   try {
-    const doc = new window.jspdf.jsPDF();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
 
-    // Загружаем шрифт Roboto с поддержкой кириллицы
-    const fontUrl = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/roboto/static/Roboto-Regular.ttf';
+    // Завантаження шрифту (це асинхронна операція)
+    const fontUrl = 'https://raw.githack.com/MrRio/jsPDF/master/test/reference/Amiri-Regular.ttf';
     const response = await fetch(fontUrl);
-    const blob = await response.blob();
+    const font = await response.arrayBuffer();
+    const fontBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(font)));
 
-    // Конвертируем шрифт в Base64
-    const base64Font = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    doc.addFileToVFS('Amiri-Regular.ttf', fontBase64);
+    doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+    doc.setFont('Amiri');
 
-    // Регистрируем шрифт в jsPDF
-    doc.addFileToVFS('Roboto-Regular.ttf', base64Font);
-    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-    doc.setFont('Roboto');
-
-    // Формируем PDF
     doc.setFontSize(16);
-    doc.text('Звіт по заробітку', 14, 18);
+    doc.text('Звіт по заробітку', 14, 22);
     doc.setFontSize(11);
-    let y = 30;
+    let y = 35;
 
     const line = (label, value) => {
       doc.text(`${label}: ${value}`, 14, y);
-      y += 8;
+      y += 7;
     };
 
     line('Дата формування', new Date().toLocaleDateString('uk-UA'));
-    line('Сьогодні', todayTotalEl.textContent + ' грн (' + todayCountEl.textContent + ' поїздок)');
-    line('Чайові сьогодні', todayTipsEl.textContent + ' грн');
-    line('За тиждень', weekTotalEl.textContent + ' грн');
-    line('За місяць', monthTotalEl.textContent + ' грн');
+    y += 5; // Додатковий відступ
+    line('Сьогодні зароблено', `${todayTotalEl.textContent} грн (${todayCountEl.textContent} поїздок)`);
+    line('Чайові сьогодні', `${todayTipsEl.textContent} грн`);
     line('Витрати сьогодні', todayExpensesEl.textContent);
-    line('Комісія Uklon сьогодні', todayCommissionEl.textContent);
+    line('Комісія Uklon', todayCommissionEl.textContent);
     line('Чистими сьогодні', todayNetEl.textContent);
+    y += 5;
+    line('Загалом за тиждень', `${weekTotalEl.textContent} грн`);
+    line('Загалом за місяць', `${monthTotalEl.textContent} грн`);
 
     doc.save('zvit-' + todayKey() + '.pdf');
   } catch (error) {
-    alert('Помилка при формуванні PDF: ' + error.message);
+    console.error('Помилка при формуванні PDF:', error);
+    alert('Не вдалося згенерувати PDF. Перевірте консоль для деталей.');
   } finally {
     exportPdfBtn.textContent = oldText;
     exportPdfBtn.disabled = false;
@@ -685,3 +650,6 @@ themeToggleBtn.addEventListener('click', () => {
   localStorage.setItem('theme', currentTheme);
   applyTheme(currentTheme);
 });
+
+// Додаємо стиль для поля пробігу
+kmInput.parentElement.style.flexBasis = 'calc(50% - 5px)';
