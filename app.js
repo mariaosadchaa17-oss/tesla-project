@@ -20,9 +20,6 @@ const GAS_CONSUMPTION_PER_100KM = 8;
 const EV_PRICE_PER_KWH = 4;
 const EV_CONSUMPTION_PER_100KM = 18;
 
-const TAX_UNIFIED = 1729.40;
-const TAX_MILITARY = 864.70;
-
 const form = document.getElementById('trip-form');
 const amountInput = document.getElementById('amount');
 const tipInput = document.getElementById('tip');
@@ -51,17 +48,10 @@ const shiftStatus = document.getElementById('shift-status');
 const shiftRateRow = document.getElementById('shift-rate-row');
 const shiftRate = document.getElementById('shift-rate');
 
-const taxUnifiedEl = document.getElementById('tax-unified');
-const taxMilitaryEl = document.getElementById('tax-military');
-const taxTotalEl = document.getElementById('tax-total');
-const taxStatusLabel = document.getElementById('tax-status-label');
-const taxPaidBtn = document.getElementById('tax-paid-btn');
-
 const teslaKmEl = document.getElementById('tesla-km');
 const teslaSavingsEl = document.getElementById('tesla-savings');
 
 const heatmapEl = document.getElementById('heatmap');
-const weekChartEl = document.getElementById('week-chart');
 const weekCompareEl = document.getElementById('week-compare');
 const monthCompareEl = document.getElementById('month-compare');
 
@@ -85,7 +75,6 @@ commissionInput.value = commissionPercent;
 
 function dateKeyOf(date) {
   const d = new Date(date);
-  // Зміщення для врахування нічних поїздок до попереднього дня
   if (d.getHours() < 4) {
     d.setDate(d.getDate() - 1);
   }
@@ -153,11 +142,9 @@ form.addEventListener('submit', async (e) => {
     total: amount + tip,
     km,
     paymentMethod,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    dateKey: dateKeyOf(new Date()),
   };
-
-  // Встановлюємо dateKey на основі клієнтського часу, але з урахуванням нічної логіки
-  tripData.dateKey = dateKeyOf(new Date());
 
   if (editingId) {
     await tripsRef.doc(editingId).update(tripData);
@@ -223,7 +210,6 @@ if (SpeechRecognitionCtor && micBtn) {
 tripsRef.orderBy('createdAt', 'desc').limit(1000).onSnapshot((snapshot) => {
   allTrips = snapshot.docs.map((doc) => {
     const data = doc.data();
-    // Перераховуємо dateKey на клієнті для старих записів, якщо потрібно
     if (data.createdAt) {
       data.dateKey = dateKeyOf(data.createdAt.toDate());
     }
@@ -338,43 +324,6 @@ async function restoreShift() {
 }
 restoreShift();
 
-function renderTax() {
-  taxUnifiedEl.textContent = TAX_UNIFIED.toFixed(2) + ' грн';
-  taxMilitaryEl.textContent = TAX_MILITARY.toFixed(2) + ' грн';
-  taxTotalEl.textContent = (TAX_UNIFIED + TAX_MILITARY).toFixed(2) + ' грн';
-
-  const key = 'taxPaid-' + monthKey();
-  const paid = localStorage.getItem(key) === '1';
-  const day = new Date().getDate();
-
-  if (paid) {
-    taxStatusLabel.textContent = 'Сплачено за цей місяць';
-    taxStatusLabel.style.color = 'var(--charge)';
-    taxPaidBtn.textContent = 'Скасувати позначку';
-  } else {
-    taxPaidBtn.textContent = 'Позначити сплачено';
-    if (day >= 15) {
-      taxStatusLabel.textContent = 'Наближається дата сплати (до 20 числа)!';
-      taxStatusLabel.style.color = 'var(--tip)';
-    } else {
-      taxStatusLabel.textContent = 'Ще не сплачено за цей місяць';
-      taxStatusLabel.style.color = 'var(--text-muted)';
-    }
-  }
-}
-
-taxPaidBtn.addEventListener('click', () => {
-  const key = 'taxPaid-' + monthKey();
-  const paid = localStorage.getItem(key) === '1';
-  if (paid) {
-    localStorage.removeItem(key);
-  } else {
-    localStorage.setItem(key, '1');
-  }
-  renderTax();
-});
-renderTax();
-
 function render() {
   const today = todayKey();
   const weekStart = startOfWeekKey();
@@ -444,7 +393,6 @@ function render() {
   renderTesla();
   renderHeatmap();
   renderRange();
-  renderWeekChart();
   renderCompare();
   updateShiftUI();
 }
@@ -459,7 +407,7 @@ function renderTesla() {
 }
 
 const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
-const BUCKET_LABELS = ['Ніч (0-6)', 'Ранок (6-12)', 'День (12-18)', 'Вечір (18-24)'];
+const BUCKET_LABELS = ['Ніч', 'Ранок', 'День', 'Вечір'];
 
 function renderHeatmap() {
   const grid = Array.from({ length: 7 }, () => [0, 0, 0, 0]);
@@ -467,12 +415,11 @@ function renderHeatmap() {
     if (!t.createdAt) return;
     const d = t.createdAt.toDate();
     let dow = d.getDay();
-    dow = dow === 0 ? 6 : dow - 1; // Пн = 0, Нд = 6
-    const hour = d.getHours();
+    dow = dow === 0 ? 6 : dow - 1;
     
-    // Якщо година до 4 ранку, відносимо до попереднього дня
+    const hour = d.getHours();
     if (hour < 4) {
-      dow = (dow + 6) % 7; // Переміщаємо на день назад (напр. з Пн на Нд)
+      dow = (dow + 6) % 7;
     }
     
     const bucket = Math.floor(hour / 6);
@@ -482,7 +429,7 @@ function renderHeatmap() {
   let max = 0;
   grid.forEach((row) => row.forEach((v) => { if (v > max) max = v; }));
 
-  let html = '<div class="heatmap">';
+  let html = '<div class="heatmap-grid">';
   html += '<div class="heatmap-cell heatmap-label"></div>';
   BUCKET_LABELS.forEach((b) => {
     html += `<div class="heatmap-cell heatmap-label">${b}</div>`;
@@ -491,7 +438,7 @@ function renderHeatmap() {
     html += `<div class="heatmap-cell heatmap-label">${DOW_LABELS[i]}</div>`;
     row.forEach((v) => {
       const opacity = max > 0 ? (0.15 + 0.85 * (v / max)).toFixed(2) : 0.1;
-      const textColor = v > max / 2 ? '#fff' : 'var(--text)';
+      const textColor = v > max / 1.8 ? '#fff' : 'var(--text)';
       html += `<div class="heatmap-cell" style="background:rgba(79,131,247,${opacity}); color: ${textColor}" title="${v.toFixed(0)} грн">${v > 0 ? Math.round(v) : ''}</div>`;
     });
   });
@@ -519,35 +466,19 @@ function renderRange() {
 rangeFrom.addEventListener('change', renderRange);
 rangeTo.addEventListener('change', renderRange);
 
-function renderWeekChart() {
-  const days = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    days.push(dateKeyOf(d));
+function compareBadge(current, previous) {
+  if (previous === 0) {
+    return current > 0 ? '<span class="badge up">▲</span>' : '<span class="badge">—</span>';
   }
-  const totals = days.map((key) => allTrips.filter((t) => t.dateKey === key).reduce((s, t) => s + t.total, 0));
-  const max = Math.max(...totals, 1);
-  weekChartEl.innerHTML = days.map((key, i) => {
-    const h = Math.max(2, Math.round((totals[i] / max) * 100));
-    const label = new Date(key).toLocaleDateString('uk-UA', { day: 'numeric', month: 'numeric' });
-    return `<div class="bar-col"><div class="bar" style="height:${h}%" title="${totals[i].toFixed(0)} грн"></div><div class="bar-label">${label}</div></div>`;
-  }).join('');
-}
-
-function compareBadge(curr, prev) {
-  if (prev === 0) {
-    return curr > 0 ? '<span class="badge up">новий результат</span>' : '<span class="badge">—</span>';
-  }
-  const pct = ((curr - prev) / prev) * 100;
+  const pct = ((current - previous) / previous) * 100;
   const cls = pct >= 0 ? 'up' : 'down';
-  const sign = pct >= 0 ? '+' : '';
-  return `<span class="badge ${cls}">${sign}${pct.toFixed(0)}%</span>`;
+  const sign = pct >= 0 ? '▲' : '▼';
+  return `<span class="badge ${cls}">${sign}${Math.abs(pct).toFixed(0)}%</span>`;
 }
 
 function renderCompare() {
   const weekStart = startOfWeekKey();
-  const weekEnd = todayKey();
+  const today = todayKey();
   const prevWeekEnd = addDaysToKey(weekStart, -1);
   const prevWeekStart = addDaysToKey(weekStart, -7);
 
@@ -555,25 +486,24 @@ function renderCompare() {
   const prevMonthEnd = addDaysToKey(monthStart, -1);
   const prevMonthStart = startOfMonthFromKey(prevMonthEnd);
 
-  const curWeek = sumRange(weekStart, weekEnd);
-  const prevWeek = sumRange(prevWeekStart, prevWeekEnd);
-  const curMonth = sumRange(monthStart, todayKey());
-  const prevMonth = sumRange(prevMonthStart, prevMonthEnd);
+  const curWeekTotal = sumRange(weekStart, today);
+  const prevWeekTotal = sumRange(prevWeekStart, prevWeekEnd);
+  const curMonthTotal = sumRange(monthStart, today);
+  const prevMonthTotal = sumRange(prevMonthStart, prevMonthEnd);
 
-  weekCompareEl.innerHTML = `Цей тиждень: ${curWeek.toFixed(0)} грн ${compareBadge(curWeek, prevWeek)}`;
-  monthCompareEl.innerHTML = `Цей місяць: ${curMonth.toFixed(0)} грн ${compareBadge(curMonth, prevMonth)}`;
+  weekCompareEl.innerHTML = `проти минулого тижня ${compareBadge(curWeekTotal, prevWeekTotal)}`;
+  monthCompareEl.innerHTML = `проти минулого місяця ${compareBadge(curMonthTotal, prevMonthTotal)}`;
 }
 
 exportPdfBtn.addEventListener('click', async () => {
   const oldText = exportPdfBtn.textContent;
-  exportPdfBtn.textContent = 'Генерація PDF...';
+  exportPdfBtn.textContent = 'Генерація...';
   exportPdfBtn.disabled = true;
 
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    // Завантаження шрифту (це асинхронна операція)
     const fontUrl = 'https://raw.githack.com/MrRio/jsPDF/master/test/reference/Amiri-Regular.ttf';
     const response = await fetch(fontUrl);
     const font = await response.arrayBuffer();
@@ -594,7 +524,7 @@ exportPdfBtn.addEventListener('click', async () => {
     };
 
     line('Дата формування', new Date().toLocaleDateString('uk-UA'));
-    y += 5; // Додатковий відступ
+    y += 5;
     line('Сьогодні зароблено', `${todayTotalEl.textContent} грн (${todayCountEl.textContent} поїздок)`);
     line('Чайові сьогодні', `${todayTipsEl.textContent} грн`);
     line('Витрати сьогодні', todayExpensesEl.textContent);
@@ -604,10 +534,10 @@ exportPdfBtn.addEventListener('click', async () => {
     line('Загалом за тиждень', `${weekTotalEl.textContent} грн`);
     line('Загалом за місяць', `${monthTotalEl.textContent} грн`);
 
-    doc.save('zvit-' + todayKey() + '.pdf');
+    doc.save(`zvit-${todayKey()}.pdf`);
   } catch (error) {
-    console.error('Помилка при формуванні PDF:', error);
-    alert('Не вдалося згенерувати PDF. Перевірте консоль для деталей.');
+    console.error('PDF generation error:', error);
+    alert('Не вдалося згенерувати PDF. Перевірте консоль.');
   } finally {
     exportPdfBtn.textContent = oldText;
     exportPdfBtn.disabled = false;
@@ -650,6 +580,3 @@ themeToggleBtn.addEventListener('click', () => {
   localStorage.setItem('theme', currentTheme);
   applyTheme(currentTheme);
 });
-
-// Додаємо стиль для поля пробігу
-kmInput.parentElement.style.flexBasis = 'calc(50% - 5px)';

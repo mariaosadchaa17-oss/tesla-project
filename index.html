@@ -5,26 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Улік поїздок | Uklon Tesla</title>
   
-  <!-- Шрифти Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 
-  <!-- Стилі -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Firebase SDK (v8) -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
-  <!-- Бібліотеки для генерації PDF -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
   <div class="app">
-    <!-- Хедер -->
     <header class="header">
       <div>
         <h1>Tesla Trip Log</h1>
@@ -35,7 +29,6 @@
       </div>
     </header>
 
-    <!-- Зміна (Години роботи) -->
     <div class="card">
       <div class="card-row">
         <span id="shift-status">Зміну не розпочато</span>
@@ -47,7 +40,6 @@
       </div>
     </div>
 
-    <!-- Заробіток за сьогодні -->
     <div class="charge-card">
       <div class="charge-top">
         <span class="charge-icon">⚡</span>
@@ -59,7 +51,6 @@
       </div>
     </div>
 
-    <!-- Чистий прибуток та комісія -->
     <div class="card">
       <h3>Фінансовий розрахунок</h3>
       <div class="card-row">
@@ -80,19 +71,17 @@
       </div>
     </div>
 
-    <!-- Статистика за період -->
     <div class="stats-row">
       <div class="stat">
         <span class="stat-value" id="week-total">0</span>
-        <span class="stat-label">7 днів (грн)</span>
+        <span class="stat-label" id="week-compare"></span>
       </div>
       <div class="stat">
         <span class="stat-value" id="month-total">0</span>
-        <span class="stat-label">30 днів (грн)</span>
+        <span class="stat-label" id="month-compare"></span>
       </div>
     </div>
 
-    <!-- Форма додавання поїздки -->
     <form id="trip-form" class="trip-form">
       <div class="field">
         <label for="amount">Сума замовлення</label>
@@ -125,10 +114,12 @@
         </div>
       </div>
 
-      <button type="submit" class="save-btn">Зберегти поїздку</button>
+      <div class="form-buttons">
+        <button type="submit" id="save-trip-btn" class="save-btn">Зберегти</button>
+        <button type="button" id="cancel-edit-btn" class="cancel-edit-btn" style="display: none;">Скасувати</button>
+      </div>
     </form>
 
-    <!-- Історія поїздок -->
     <div class="history">
       <h2>Сьогоднішні поїздки</h2>
       <ul id="history-list" class="history-list">
@@ -136,23 +127,21 @@
       </ul>
     </div>
 
-    <!-- Витрати -->
     <div class="card" style="margin-top: 24px;">
-      <h3>Додати витрату (Зарядка / Мийка)</h3>
+      <h3>Додати витрату</h3>
       <form id="expense-form" class="expense-form">
         <select id="expense-category">
           <option value="Зарядка">🔋 Зарядка</option>
           <option value="Мийка">🧽 Мийка</option>
-          <option value="Омивач">🚗 Омивач / Дрібниці</option>
+          <option value="Омивач">🚗 Омивач</option>
           <option value="Інше">🛠️ Інше</option>
         </select>
         <input type="number" id="expense-amount" placeholder="Сума грн" required />
-        <button type="submit">Додати витрату</button>
+        <button type="submit">Додати</button>
       </form>
       <ul id="expense-list" class="history-list" style="margin-top: 10px;"></ul>
     </div>
 
-    <!-- Екологія / Економія Tesla -->
     <div class="card">
       <h3>Економія на Tesla</h3>
       <div class="card-row">
@@ -160,12 +149,16 @@
         <span id="tesla-km" class="card-value">0 км</span>
       </div>
       <div class="card-row">
-        <span>Збережено vs Бензин:</span>
+        <span>Збережено (vs бензин):</span>
         <span id="tesla-savings" class="card-value positive">0 грн</span>
       </div>
     </div>
 
-    <!-- Фільтр за період -->
+    <div class="card">
+        <h3>Активність за часом та днем</h3>
+        <div id="heatmap"></div>
+    </div>
+
     <div class="card">
       <h3>Вибірка за датами</h3>
       <div class="card-row">
@@ -182,24 +175,20 @@
       </div>
     </div>
 
-    <!-- Експорт -->
     <div class="card-row" style="gap: 10px; margin-top: 20px;">
-      <button id="export-csv-btn" class="shift-btn" style="flex: 1; background: var(--surface-2); color: var(--text);">📥 CSV (Excel)</button>
-      <button id="export-pdf-btn" class="shift-btn" style="flex: 1;">📄 PDF Звіт</button>
+      <button id="export-csv-btn" class="shift-btn secondary-btn">📥 CSV</button>
+      <button id="export-pdf-btn" class="shift-btn">📄 PDF Звіт</button>
     </div>
   </div>
 
-  <!-- Скрипт додатка -->
   <script src="app.js"></script>
-
   <script>
-    // Встановлення поточної дати в хедері
     const dateEl = document.getElementById('current-date');
     if (dateEl) {
       dateEl.textContent = new Date().toLocaleDateString('uk-UA', {
-        weekday: 'short',
+        weekday: 'long',
         day: 'numeric',
-        month: 'short'
+        month: 'long'
       });
     }
   </script>
