@@ -9,6 +9,8 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+
 const tripsRef = db.collection('trips');
 const expensesRef = db.collection('expenses');
 const shiftsRef = db.collection('shifts');
@@ -28,7 +30,6 @@ const kmInput = document.getElementById('km');
 const saveBtn = document.getElementById('save-trip-btn');
 const cancelEditBtn = document.getElementById('cancel-edit-btn');
 const historyList = document.getElementById('history-list');
-const daysList = document.getElementById('days-list');
 
 const todayTotalEl = document.getElementById('today-total');
 const todayTipsEl = document.getElementById('today-tips');
@@ -60,6 +61,9 @@ const teslaKmEl = document.getElementById('tesla-km');
 const teslaSavingsEl = document.getElementById('tesla-savings');
 
 const heatmapEl = document.getElementById('heatmap');
+const weekChartEl = document.getElementById('week-chart');
+const weekCompareEl = document.getElementById('week-compare');
+const monthCompareEl = document.getElementById('month-compare');
 
 const rangeFrom = document.getElementById('range-from');
 const rangeTo = document.getElementById('range-to');
@@ -67,7 +71,17 @@ const rangeTotalEl = document.getElementById('range-total');
 const rangeCountEl = document.getElementById('range-count');
 
 const exportPdfBtn = document.getElementById('export-pdf-btn');
+const exportCsvBtn = document.getElementById('export-csv-btn');
 const themeToggleBtn = document.getElementById('theme-toggle');
+const lockBtn = document.getElementById('lock-btn');
+const pinOverlay = document.getElementById('pin-overlay');
+const pinInput = document.getElementById('pin-input');
+const pinSubmitBtn = document.getElementById('pin-submit-btn');
+const pinError = document.getElementById('pin-error');
+const pinSetupForm = document.getElementById('pin-setup-form');
+const pinSetupInput = document.getElementById('pin-setup-input');
+const pinRemoveBtn = document.getElementById('pin-remove-btn');
+const micBtn = document.getElementById('mic-btn');
 
 let editingId = null;
 let allTrips = [];
@@ -99,6 +113,18 @@ function startOfWeekKey() {
 
 function startOfMonthKey() {
   const d = new Date();
+  d.setDate(1);
+  return dateKeyOf(d);
+}
+
+function addDaysToKey(key, delta) {
+  const d = new Date(key);
+  d.setDate(d.getDate() + delta);
+  return dateKeyOf(d);
+}
+
+function startOfMonthFromKey(key) {
+  const d = new Date(key);
   d.setDate(1);
   return dateKeyOf(d);
 }
@@ -165,6 +191,78 @@ commissionInput.addEventListener('input', () => {
   render();
 });
 
+document.querySelectorAll('.quick-tip-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    tipInput.value = btn.dataset.val;
+  });
+});
+
+const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SpeechRecognitionCtor && micBtn) {
+  const recognition = new SpeechRecognitionCtor();
+  recognition.lang = 'uk-UA';
+  recognition.interimResults = false;
+  micBtn.addEventListener('click', () => {
+    try { recognition.start(); } catch (e) {}
+  });
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    const match = transcript.replace(',', '.').match(/\d+(\.\d+)?/);
+    if (match) amountInput.value = match[0];
+  };
+} else if (micBtn) {
+  micBtn.style.display = 'none';
+}
+
+function checkLock() {
+  const savedPin = localStorage.getItem('appPin');
+  if (savedPin && sessionStorage.getItem('unlocked') !== '1') {
+    pinOverlay.classList.remove('hidden');
+  } else {
+    pinOverlay.classList.add('hidden');
+  }
+}
+checkLock();
+
+pinSubmitBtn.addEventListener('click', () => {
+  if (pinInput.value && pinInput.value === localStorage.getItem('appPin')) {
+    sessionStorage.setItem('unlocked', '1');
+    pinInput.value = '';
+    pinError.textContent = '';
+    checkLock();
+  } else {
+    pinError.textContent = 'Невірний PIN';
+  }
+});
+
+lockBtn.addEventListener('click', () => {
+  if (!localStorage.getItem('appPin')) {
+    alert('Спочатку встанови PIN у розділі "Захист паролем" внизу сторінки');
+    return;
+  }
+  sessionStorage.removeItem('unlocked');
+  checkLock();
+});
+
+pinSetupForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const val = pinSetupInput.value.trim();
+  if (val.length < 4) {
+    alert('PIN має бути мінімум 4 цифри');
+    return;
+  }
+  localStorage.setItem('appPin', val);
+  sessionStorage.setItem('unlocked', '1');
+  pinSetupInput.value = '';
+  alert('PIN встановлено');
+});
+
+pinRemoveBtn.addEventListener('click', () => {
+  localStorage.removeItem('appPin');
+  sessionStorage.removeItem('unlocked');
+  alert('Захист вимкнено');
+});
+
 tripsRef.orderBy('createdAt', 'desc').limit(1000).onSnapshot((snapshot) => {
   allTrips = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   render();
@@ -199,6 +297,10 @@ expenseForm.addEventListener('submit', async (e) => {
 function sumToday() {
   const today = todayKey();
   return allTrips.filter((t) => t.dateKey === today).reduce((s, t) => s + t.total, 0);
+}
+
+function sumRange(from, to) {
+  return allTrips.filter((t) => t.dateKey >= from && t.dateKey <= to).reduce((s, t) => s + t.total, 0);
 }
 
 function formatDuration(ms) {
@@ -370,9 +472,10 @@ function render() {
   }
 
   renderTesla();
-  renderDays();
   renderHeatmap();
   renderRange();
+  renderWeekChart();
+  renderCompare();
   updateShiftUI();
 }
 
@@ -383,32 +486,6 @@ function renderTesla() {
   const savings = Math.max(0, gasCost - evCost);
   teslaKmEl.textContent = totalKm.toFixed(0) + ' км';
   teslaSavingsEl.textContent = savings.toFixed(0) + ' грн';
-}
-
-function renderDays() {
-  const byDay = {};
-  for (let i = 0; i < 7; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    byDay[dateKeyOf(d)] = 0;
-  }
-
-  allTrips.forEach((t) => {
-    if (t.dateKey in byDay) byDay[t.dateKey] += t.total;
-  });
-
-  daysList.innerHTML = '';
-  Object.keys(byDay).sort().reverse().forEach((key) => {
-    const li = document.createElement('li');
-    li.className = 'history-item';
-    const label = new Date(key).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
-    li.innerHTML = `
-      <span class="history-time">${label}</span>
-      <span class="history-amounts"></span>
-      <span class="history-total">${byDay[key].toFixed(0)} грн</span>
-    `;
-    daysList.appendChild(li);
-  });
 }
 
 const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
@@ -464,6 +541,51 @@ function renderRange() {
 rangeFrom.addEventListener('change', renderRange);
 rangeTo.addEventListener('change', renderRange);
 
+function renderWeekChart() {
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push(dateKeyOf(d));
+  }
+  const totals = days.map((key) => allTrips.filter((t) => t.dateKey === key).reduce((s, t) => s + t.total, 0));
+  const max = Math.max(...totals, 1);
+  weekChartEl.innerHTML = days.map((key, i) => {
+    const h = Math.max(2, Math.round((totals[i] / max) * 100));
+    const label = new Date(key).toLocaleDateString('uk-UA', { day: 'numeric', month: 'numeric' });
+    return `<div class="bar-col"><div class="bar" style="height:${h}%" title="${totals[i].toFixed(0)} грн"></div><div class="bar-label">${label}</div></div>`;
+  }).join('');
+}
+
+function compareBadge(curr, prev) {
+  if (prev === 0) {
+    return curr > 0 ? '<span class="badge up">новий результат</span>' : '<span class="badge">—</span>';
+  }
+  const pct = ((curr - prev) / prev) * 100;
+  const cls = pct >= 0 ? 'up' : 'down';
+  const sign = pct >= 0 ? '+' : '';
+  return `<span class="badge ${cls}">${sign}${pct.toFixed(0)}%</span>`;
+}
+
+function renderCompare() {
+  const weekStart = startOfWeekKey();
+  const weekEnd = todayKey();
+  const prevWeekEnd = addDaysToKey(weekStart, -1);
+  const prevWeekStart = addDaysToKey(weekStart, -7);
+
+  const monthStart = startOfMonthKey();
+  const prevMonthEnd = addDaysToKey(monthStart, -1);
+  const prevMonthStart = startOfMonthFromKey(prevMonthEnd);
+
+  const curWeek = sumRange(weekStart, weekEnd);
+  const prevWeek = sumRange(prevWeekStart, prevWeekEnd);
+  const curMonth = sumRange(monthStart, todayKey());
+  const prevMonth = sumRange(prevMonthStart, prevMonthEnd);
+
+  weekCompareEl.innerHTML = compareBadge(curWeek, prevWeek);
+  monthCompareEl.innerHTML = compareBadge(curMonth, prevMonth);
+}
+
 exportPdfBtn.addEventListener('click', () => {
   const doc = new window.jspdf.jsPDF();
   doc.setFontSize(16);
@@ -483,6 +605,24 @@ exportPdfBtn.addEventListener('click', () => {
   line('Комісія Uklon сьогодні', todayCommissionEl.textContent);
   line('Чистими сьогодні', todayNetEl.textContent);
   doc.save('zvit-' + todayKey() + '.pdf');
+});
+
+exportCsvBtn.addEventListener('click', () => {
+  const header = 'Дата,Час,Сума,Чайові,Разом,Пробіг,Оплата\n';
+  const rows = allTrips.map((t) => {
+    const d = t.createdAt ? t.createdAt.toDate() : null;
+    const date = d ? dateKeyOf(d) : t.dateKey;
+    const time = d ? d.toLocaleTimeString('uk-UA') : '';
+    const pay = t.paymentMethod === 'card' ? 'картка' : 'готівка';
+    return [date, time, t.amount, t.tip, t.total, t.km || 0, pay].join(',');
+  }).join('\n');
+  const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'poizdky.csv';
+  a.click();
+  URL.revokeObjectURL(url);
 });
 
 function getDefaultTheme() {

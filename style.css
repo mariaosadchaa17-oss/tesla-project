@@ -237,6 +237,38 @@ body {
   border-color: var(--accent);
 }
 
+.amount-row {
+  display: flex;
+  gap: 6px;
+}
+
+.mic-btn {
+  background: var(--surface-2);
+  border: none;
+  border-radius: 10px;
+  width: 44px;
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.quick-tips {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.quick-tips button {
+  flex: 1;
+  background: var(--surface-2);
+  border: none;
+  border-radius: 8px;
+  padding: 6px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .save-btn {
   flex-basis: 100%;
   background: var(--accent);
@@ -322,12 +354,6 @@ body {
   padding: 16px 0;
 }
 
-.settings {
-  margin-top: 24px;
-  color: var(--text-muted);
-  font-size: 14px;
-}
-
 .expense-form {
   display: flex;
   gap: 10px;
@@ -374,6 +400,79 @@ body {
   color: var(--text-muted);
 }
 
-.heatmap-label {
-  background: none !important;
+.heatmap-label { background: none !important; }
+
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 100px;
+  margin-bottom: 12px;
+}
+
+.bar-chart .bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+}
+
+.bar-chart .bar {
+  width: 100%;
+  background: var(--accent);
+  border-radius: 4px 4px 0 0;
+  min-height: 2px;
+}
+
+.bar-chart .bar-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.compare-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.badge {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.badge.up { background: rgba(52, 211, 153, 0.15); color: var(--charge); }
+.badge.down { background: rgba(242, 183, 5, 0.15); color: var(--tip); }
+
+.pin-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  gap: 16px;
+}
+
+.pin-overlay.hidden { display: none; }
+
+.pin-overlay input {
+  font-size: 28px;
+  text-align: center;
+  letter-spacing: 8px;
+  width: 160px;
+  background: var(--surface);
+  border: 1px solid var(--surface-2);
+  border-radius: 10px;
+  padding: 12px;
+  color: var(--text);
 }
