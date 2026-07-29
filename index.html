@@ -4,19 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
   <title>Заробіток | Uklon</title>
-  
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-
   <link rel="stylesheet" href="style.css" />
-
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
-
   <div class="app" id="app-root">
     <header class="header">
       <div>
@@ -32,17 +28,6 @@
         <button id="theme-toggle" class="theme-toggle" title="Змінити тему">☀️</button>
       </div>
     </header>
-
-    <div class="shift-card">
-      <div class="shift-card-row">
-        <span id="shift-status" class="shift-status-text">Зміну не розпочато</span>
-        <button id="shift-btn" class="shift-btn-small">Почати зміну</button>
-      </div>
-      <div class="card-row" id="shift-rate-row" style="display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--surface-2);">
-        <span style="font-size:13px;">Середній заробіток:</span>
-        <span id="shift-rate" class="card-value positive" style="font-size:15px;">0 грн/год</span>
-      </div>
-    </div>
 
     <div class="charge-card">
       <div class="charge-top">
@@ -86,7 +71,6 @@
           <button type="button" id="mic-btn" class="mic-btn" title="Голосовий ввід">🎤</button>
         </div>
       </div>
-
       <div class="field">
         <label for="tip">Чайові</label>
         <input type="number" id="tip" placeholder="0" pattern="[0-9]*" inputmode="decimal" />
@@ -96,7 +80,6 @@
           <button type="button" class="quick-tip-btn" data-val="50">+50</button>
         </div>
       </div>
-
       <div class="field field--full">
         <label>Тип оплати</label>
         <div class="payment-options">
@@ -104,7 +87,6 @@
           <label class="payment-label"><input type="radio" name="payment" value="card" /> 💳 Картка</label>
         </div>
       </div>
-
       <div class="form-buttons">
         <button type="submit" id="save-trip-btn" class="save-btn">💾 Зберегти поїздку</button>
         <button type="button" id="cancel-edit-btn" class="cancel-edit-btn" style="display: none;">Скасувати</button>
@@ -200,11 +182,9 @@
         weekday: 'long', day: 'numeric', month: 'long'
       });
     }
-
     const ZOOM_STEPS = [70, 80, 90, 100, 110, 120, 130, 150];
     let zoomIdx = ZOOM_STEPS.indexOf(Number(localStorage.getItem('appZoom')) || 100);
     if (zoomIdx < 0) zoomIdx = 3;
-
     function applyZoom() {
       const z = ZOOM_STEPS[zoomIdx];
       document.getElementById('app-root').style.zoom = z / 100;

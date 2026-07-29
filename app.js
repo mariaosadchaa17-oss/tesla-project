@@ -13,7 +13,6 @@ db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
 
 const tripsRef = db.collection('trips');
 const expensesRef = db.collection('expenses');
-const shiftsRef = db.collection('shifts');
 
 const GAS_PRICE_PER_LITER = 55;
 const GAS_CONSUMPTION_PER_100KM = 8;
@@ -43,11 +42,6 @@ const expenseCategory = document.getElementById('expense-category');
 const expenseAmount = document.getElementById('expense-amount');
 const expenseList = document.getElementById('expense-list');
 
-const shiftBtn = document.getElementById('shift-btn');
-const shiftStatus = document.getElementById('shift-status');
-const shiftRateRow = document.getElementById('shift-rate-row');
-const shiftRate = document.getElementById('shift-rate');
-
 const teslaKmEl = document.getElementById('tesla-km');
 const teslaSavingsEl = document.getElementById('tesla-savings');
 const saveKmBtn = document.getElementById('save-km-btn');
@@ -68,29 +62,20 @@ const micBtn = document.getElementById('mic-btn');
 let editingId = null;
 let allTrips = [];
 let allExpenses = [];
-let activeShift = null;
-let shiftInterval = null;
 let commissionPercent = Number(localStorage.getItem('uklonCommission')) || 15;
 commissionInput.value = commissionPercent;
 
-// ── Логіка дат ──────────────────────────────────────────────
-// Робочий день починається о 04:00 і закінчується о 03:59 наступного дня.
-// Тобто поїздки між 00:00–03:59 відносяться до "вчорашнього" дня.
-// Це дозволяє не розривати нічну зміну на два дні.
+// ── Логіка дат ───────────────────────────────────────────
 function dateKeyOf(date) {
   const d = new Date(date);
-  if (d.getHours() < 4) {
-    d.setDate(d.getDate() - 1);
-  }
+  if (d.getHours() < 4) d.setDate(d.getDate() - 1);
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
 
-function todayKey() {
-  return dateKeyOf(new Date());
-}
+function todayKey() { return dateKeyOf(new Date()); }
 
 function startOfWeekKey() {
   const d = new Date();
@@ -117,26 +102,17 @@ function startOfMonthFromKey(key) {
   return dateKeyOf(d);
 }
 
-// ── Авто-оновлення о 04:00 ──────────────────────────────────
-// Якщо сторінка відкрита, о 04:00 "сьогодні" автоматично зміниться
-// і весь render() перерахується з новим dateKey.
+// Авто-скидання о 04:00 — якщо сторінка відкрита
 function scheduleNextDayReset() {
   const now = new Date();
-  // Наступне 04:00
   const next = new Date(now);
-  if (now.getHours() >= 4) {
-    next.setDate(next.getDate() + 1);
-  }
+  if (now.getHours() >= 4) next.setDate(next.getDate() + 1);
   next.setHours(4, 0, 0, 0);
-  const msUntil = next.getTime() - now.getTime();
-  setTimeout(() => {
-    render(); // перерахувати з новим todayKey
-    scheduleNextDayReset(); // запланувати наступний
-  }, msUntil);
+  setTimeout(() => { render(); scheduleNextDayReset(); }, next.getTime() - now.getTime());
 }
 scheduleNextDayReset();
 
-// ── Форма поїздки ────────────────────────────────────────────
+// ── Форма поїздки ───────────────────────────────────
 function getPaymentValue() {
   const checked = form.querySelector('input[name="payment"]:checked');
   return checked ? checked.value : 'cash';
@@ -152,30 +128,45 @@ form.addEventListener('submit', async (e) => {
   const amount = Number(amountInput.value) || 0;
   const tip = Number(tipInput.value) || 0;
   if (amount <= 0 && tip <= 0) return;
-  const paymentMethod = getPaymentValue();
-
-  // dateKey НЕ беремо від клієнта — він перераховується з серверного createdAt
-  // при onSnapshot. Тут передаємо тимчасовий dateKey як підстраховку.
-  const tripData = {
-    amount,
-    tip,
-    total: amount + tip,
-    paymentMethod,
+  await tripsRef.add({
+    amount, tip, total: amount + tip,
+    paymentMethod: getPaymentValue(),
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    dateKey: dateKeyOf(new Date()), // перезапишеться при onSnapshot через серверний час
-  };
+    dateKey: dateKeyOf(new Date()),
+  });
+  if (editingId) {
+    await tripsRef.doc(editingId).update({
+      amount, tip, total: amount + tip,
+      paymentMethod: getPaymentValue(),
+    });
+    stopEditing();
+  }
+  amountInput.value = '';
+  tipInput.value = '';
+  amountInput.focus();
+});
 
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const amount = Number(amountInput.value) || 0;
+  const tip = Number(tipInput.value) || 0;
+  if (amount <= 0 && tip <= 0) return;
+  const tripData = {
+    amount, tip, total: amount + tip,
+    paymentMethod: getPaymentValue(),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    dateKey: dateKeyOf(new Date()),
+  };
   if (editingId) {
     await tripsRef.doc(editingId).update(tripData);
     stopEditing();
   } else {
     await tripsRef.add(tripData);
   }
-
   amountInput.value = '';
   tipInput.value = '';
   amountInput.focus();
-});
+}, { once: false });
 
 cancelEditBtn.addEventListener('click', stopEditing);
 
@@ -195,19 +186,72 @@ function stopEditing() {
   cancelEditBtn.style.display = 'none';
 }
 
-// ── Кнопка збереження пробігу ────────────────────────────────
-// Пробіг зберігається як окремий запис у trips з amount=0, tip=0
-// щоб не псувати статистику, але додавати кілометри до загального пробігу.
+commissionInput.addEventListener('input', () => {
+  commissionPercent = Number(commissionInput.value) || 0;
+  localStorage.setItem('uklonCommission', commissionPercent);
+  render();
+});
+
+document.querySelectorAll('.quick-tip-btn').forEach((btn) => {
+  btn.addEventListener('click', () => { tipInput.value = btn.dataset.val; });
+});
+
+// ── Голосовий ввід ────────────────────────────────────
+const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SpeechRecognitionCtor && micBtn) {
+  const recognition = new SpeechRecognitionCtor();
+  recognition.lang = 'uk-UA';
+  recognition.interimResults = false;
+  micBtn.addEventListener('click', () => { try { recognition.start(); } catch (e) { console.error(e); } });
+  recognition.onresult = (e) => {
+    const match = e.results[0][0].transcript.replace(',', '.').match(/\d+(\.\d+)?/);
+    if (match) amountInput.value = match[0];
+  };
+} else if (micBtn) {
+  micBtn.style.display = 'none';
+}
+
+// ── Firebase onSnapshot ─────────────────────────────────
+tripsRef.orderBy('createdAt', 'desc').limit(1000).onSnapshot((snapshot) => {
+  allTrips = snapshot.docs.map((doc) => {
+    const data = doc.data();
+    if (data.createdAt) data.dateKey = dateKeyOf(data.createdAt.toDate());
+    return { id: doc.id, ...data };
+  });
+  render();
+});
+
+expensesRef.orderBy('createdAt', 'desc').limit(500).onSnapshot((snapshot) => {
+  allExpenses = snapshot.docs.map((doc) => {
+    const data = doc.data();
+    if (data.createdAt) data.dateKey = dateKeyOf(data.createdAt.toDate());
+    return { id: doc.id, ...data };
+  });
+  render();
+});
+
+async function deleteTrip(id) { await tripsRef.doc(id).delete(); }
+async function deleteExpense(id) { await expensesRef.doc(id).delete(); }
+
+expenseForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const amount = Number(expenseAmount.value) || 0;
+  if (amount <= 0) return;
+  await expensesRef.add({
+    category: expenseCategory.value, amount,
+    dateKey: todayKey(),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  expenseAmount.value = '';
+});
+
+// ── Пробіг ───────────────────────────────────────────────
 if (saveKmBtn) {
   saveKmBtn.addEventListener('click', async () => {
     const km = Number(kmInput.value) || 0;
     if (km <= 0) return;
     await tripsRef.add({
-      amount: 0,
-      tip: 0,
-      total: 0,
-      km,
-      kmOnly: true, // маркер: це запис тільки пробігу, не поїздка
+      amount: 0, tip: 0, total: 0, km, kmOnly: true,
       paymentMethod: 'cash',
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       dateKey: dateKeyOf(new Date()),
@@ -218,210 +262,53 @@ if (saveKmBtn) {
   });
 }
 
-commissionInput.addEventListener('input', () => {
-  commissionPercent = Number(commissionInput.value) || 0;
-  localStorage.setItem('uklonCommission', commissionPercent);
-  render();
-});
-
-document.querySelectorAll('.quick-tip-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    tipInput.value = btn.dataset.val;
-  });
-});
-
-// ── Голосовий ввід ───────────────────────────────────────────
-const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (SpeechRecognitionCtor && micBtn) {
-  const recognition = new SpeechRecognitionCtor();
-  recognition.lang = 'uk-UA';
-  recognition.interimResults = false;
-  micBtn.addEventListener('click', () => {
-    try { recognition.start(); } catch (e) { console.error(e); }
-  });
-  recognition.onresult = (e) => {
-    const transcript = e.results[0][0].transcript;
-    const match = transcript.replace(',', '.').match(/\d+(\.\d+)?/);
-    if (match) amountInput.value = match[0];
-  };
-} else if (micBtn) {
-  micBtn.style.display = 'none';
-}
-
-// ── Firebase onSnapshot ──────────────────────────────────────
-// dateKey перераховується з серверного createdAt — це гарантує
-// що запис завжди потрапляє до правильного дня незалежно від
-// часового пояса клієнта чи затримки між кліком і serverTimestamp.
-tripsRef.orderBy('createdAt', 'desc').limit(1000).onSnapshot((snapshot) => {
-  allTrips = snapshot.docs.map((doc) => {
-    const data = doc.data();
-    if (data.createdAt) {
-      // Завжди перераховуємо dateKey від серверного часу
-      data.dateKey = dateKeyOf(data.createdAt.toDate());
-    }
-    return { id: doc.id, ...data };
-  });
-  render();
-});
-
-expensesRef.orderBy('createdAt', 'desc').limit(500).onSnapshot((snapshot) => {
-  allExpenses = snapshot.docs.map((doc) => {
-    const data = doc.data();
-    if (data.createdAt) {
-      data.dateKey = dateKeyOf(data.createdAt.toDate());
-    }
-    return { id: doc.id, ...data };
-  });
-  render();
-});
-
-async function deleteTrip(id) {
-  await tripsRef.doc(id).delete();
-}
-
-async function deleteExpense(id) {
-  await expensesRef.doc(id).delete();
-}
-
-expenseForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const amount = Number(expenseAmount.value) || 0;
-  if (amount <= 0) return;
-  await expensesRef.add({
-    category: expenseCategory.value,
-    amount,
-    dateKey: todayKey(),
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  expenseAmount.value = '';
-});
-
-// ── Зміна ────────────────────────────────────────────────────
-function sumToday() {
-  const today = todayKey();
-  return allTrips.filter((t) => t.dateKey === today && !t.kmOnly).reduce((s, t) => s + t.total, 0);
-}
-
+// ── Render ─────────────────────────────────────────────────
 function sumRange(from, to) {
   return allTrips.filter((t) => !t.kmOnly && t.dateKey >= from && t.dateKey <= to).reduce((s, t) => s + t.total, 0);
 }
 
-function formatDuration(ms) {
-  const totalMin = Math.floor(ms / 60000);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  return h + 'год ' + m + 'хв';
-}
-
-function updateShiftUI() {
-  if (activeShift) {
-    shiftBtn.textContent = 'Завершити зміну';
-    shiftBtn.classList.add('stop');
-    const elapsedMs = Date.now() - activeShift.startedAt;
-    const hours = elapsedMs / 3600000;
-    shiftStatus.textContent = 'Зміна триває: ' + formatDuration(elapsedMs);
-    shiftRateRow.style.display = 'flex';
-    const total = sumToday();
-    shiftRate.textContent = hours > 0.05 ? Math.round(total / hours) + ' грн/год' : '—';
-  } else {
-    shiftBtn.textContent = 'Почати зміну';
-    shiftBtn.classList.remove('stop');
-    shiftStatus.textContent = 'Зміну не розпочато';
-    shiftRateRow.style.display = 'none';
-  }
-}
-
-shiftBtn.addEventListener('click', async () => {
-  if (activeShift) {
-    await shiftsRef.doc(activeShift.id).update({
-      endedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    localStorage.removeItem('activeShiftId');
-    activeShift = null;
-    clearInterval(shiftInterval);
-    updateShiftUI();
-  } else {
-    const docRef = await shiftsRef.add({
-      startedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      endedAt: null,
-      dateKey: todayKey()
-    });
-    localStorage.setItem('activeShiftId', docRef.id);
-    activeShift = { id: docRef.id, startedAt: Date.now() };
-    shiftInterval = setInterval(updateShiftUI, 30000);
-    updateShiftUI();
-  }
-});
-
-async function restoreShift() {
-  const id = localStorage.getItem('activeShiftId');
-  if (!id) return;
-  const doc = await shiftsRef.doc(id).get();
-  if (doc.exists && !doc.data().endedAt) {
-    const data = doc.data();
-    activeShift = {
-      id,
-      startedAt: data.startedAt ? data.startedAt.toDate().getTime() : Date.now()
-    };
-    shiftInterval = setInterval(updateShiftUI, 30000);
-    updateShiftUI();
-  } else {
-    localStorage.removeItem('activeShiftId');
-  }
-}
-restoreShift();
-
-// ── Render ───────────────────────────────────────────────────
 function render() {
   const today = todayKey();
   const weekStart = startOfWeekKey();
   const monthStart = startOfMonthKey();
 
-  // Фільтруємо: kmOnly записи не рахуємо як поїздки
   const todayTrips = allTrips.filter((t) => t.dateKey === today && !t.kmOnly);
-  const weekTrips = allTrips.filter((t) => t.dateKey >= weekStart && !t.kmOnly);
+  const weekTrips  = allTrips.filter((t) => t.dateKey >= weekStart && !t.kmOnly);
   const monthTrips = allTrips.filter((t) => t.dateKey >= monthStart && !t.kmOnly);
   const todayExpensesList = allExpenses.filter((x) => x.dateKey === today);
 
   const todayTotal = todayTrips.reduce((s, t) => s + t.total, 0);
-  const todayFare = todayTrips.reduce((s, t) => s + t.amount, 0);
+  const todayFare  = todayTrips.reduce((s, t) => s + t.amount, 0);
   const todayExpensesTotal = todayExpensesList.reduce((s, x) => s + x.amount, 0);
   const todayCommission = (todayFare * commissionPercent) / 100;
 
   todayTotalEl.textContent = todayTotal.toFixed(0);
-  todayTipsEl.textContent = todayTrips.reduce((s, t) => s + t.tip, 0).toFixed(0);
+  todayTipsEl.textContent  = todayTrips.reduce((s, t) => s + t.tip, 0).toFixed(0);
   todayCountEl.textContent = todayTrips.length;
-
-  weekTotalEl.textContent = weekTrips.reduce((s, t) => s + t.total, 0).toFixed(0);
+  weekTotalEl.textContent  = weekTrips.reduce((s, t) => s + t.total, 0).toFixed(0);
   monthTotalEl.textContent = monthTrips.reduce((s, t) => s + t.total, 0).toFixed(0);
-
-  todayExpensesEl.textContent = todayExpensesTotal.toFixed(0) + ' грн';
+  todayExpensesEl.textContent  = todayExpensesTotal.toFixed(0) + ' грн';
   todayCommissionEl.textContent = '= ' + todayCommission.toFixed(0) + ' грн';
   todayNetEl.textContent = (todayTotal - todayCommission - todayExpensesTotal).toFixed(0) + ' грн';
 
-  // Список поїздок — тільки реальні поїздки (не kmOnly)
   historyList.innerHTML = '';
   todayTrips.forEach((t) => {
     const li = document.createElement('li');
     li.className = 'history-item';
-    const time = t.createdAt
-      ? t.createdAt.toDate().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })
-      : '--:--';
+    const time = t.createdAt ? t.createdAt.toDate().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }) : '--:--';
     const paymentLabel = t.paymentMethod === 'card' ? '💳' : '💵';
     li.innerHTML = `
       <span class="history-time">${time}</span>
       <span class="history-amounts">${paymentLabel} ${t.amount} грн <span class="history-tip">+${t.tip} чай</span></span>
       <span class="history-total">${t.total} грн</span>
       <button class="edit-btn" aria-label="Редагувати">✎</button>
-      <button class="delete-btn" aria-label="Видалити запис">×</button>
+      <button class="delete-btn" aria-label="Видалити">×</button>
     `;
     li.querySelector('.edit-btn').addEventListener('click', () => startEditing(t));
     li.querySelector('.delete-btn').addEventListener('click', () => deleteTrip(t.id));
     historyList.appendChild(li);
   });
-  if (todayTrips.length === 0) {
-    historyList.innerHTML = '<li class="empty">Поки немає замовлень за сьогодні</li>';
-  }
+  if (todayTrips.length === 0) historyList.innerHTML = '<li class="empty">Поки немає замовлень за сьогодні</li>';
 
   expenseList.innerHTML = '';
   todayExpensesList.forEach((x) => {
@@ -436,34 +323,29 @@ function render() {
     li.querySelector('.delete-btn').addEventListener('click', () => deleteExpense(x.id));
     expenseList.appendChild(li);
   });
-  if (todayExpensesList.length === 0) {
-    expenseList.innerHTML = '<li class="empty">Витрат сьогодні немає</li>';
-  }
+  if (todayExpensesList.length === 0) expenseList.innerHTML = '<li class="empty">Витрат сьогодні немає</li>';
 
   renderTesla();
   renderHeatmap();
   renderRange();
   renderCompare();
-  updateShiftUI();
 }
 
-// ── Tesla / пробіг ───────────────────────────────────────────
+// ── Tesla ──────────────────────────────────────────────────
 function renderTesla() {
-  // Рахуємо km з усіх записів (і поїздок, і kmOnly)
   const totalKm = allTrips.reduce((s, t) => s + (t.km || 0), 0);
   const gasCost = (totalKm / 100) * GAS_CONSUMPTION_PER_100KM * GAS_PRICE_PER_LITER;
-  const evCost = (totalKm / 100) * EV_CONSUMPTION_PER_100KM * EV_PRICE_PER_KWH;
-  const savings = Math.max(0, gasCost - evCost);
-  teslaKmEl.textContent = totalKm.toFixed(0) + ' км';
-  teslaSavingsEl.textContent = savings.toFixed(0) + ' грн';
+  const evCost  = (totalKm / 100) * EV_CONSUMPTION_PER_100KM * EV_PRICE_PER_KWH;
+  teslaKmEl.textContent      = totalKm.toFixed(0) + ' км';
+  teslaSavingsEl.textContent = Math.max(0, gasCost - evCost).toFixed(0) + ' грн';
 }
 
-// ── Heatmap ──────────────────────────────────────────────────
-const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
+// ── Heatmap ───────────────────────────────────────────────
+const DOW_LABELS    = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
 const BUCKET_LABELS = ['Ранок', 'День', 'Вечір'];
 
 function getTimeBucket(hour) {
-  if (hour >= 6 && hour < 12) return 0;
+  if (hour >= 6  && hour < 12) return 0;
   if (hour >= 12 && hour < 18) return 1;
   if (hour >= 18) return 2;
   return null;
@@ -476,179 +358,123 @@ function renderHeatmap() {
     const d = t.createdAt.toDate();
     let dow = d.getDay();
     dow = dow === 0 ? 6 : dow - 1;
-    const hour = d.getHours();
-    const bucket = getTimeBucket(hour);
+    const bucket = getTimeBucket(d.getHours());
     if (bucket === null) return;
     grid[dow][bucket] += t.total;
   });
-
   let max = 0;
   grid.forEach((row) => row.forEach((v) => { if (v > max) max = v; }));
-
   let html = '<div class="heatmap-grid">';
   html += '<div class="heatmap-cell heatmap-label"></div>';
-  BUCKET_LABELS.forEach((b) => {
-    html += `<div class="heatmap-cell heatmap-label">${b}</div>`;
-  });
+  BUCKET_LABELS.forEach((b) => { html += `<div class="heatmap-cell heatmap-label">${b}</div>`; });
   grid.forEach((row, i) => {
     html += `<div class="heatmap-cell heatmap-label">${DOW_LABELS[i]}</div>`;
     row.forEach((v) => {
       const opacity = max > 0 ? (0.15 + 0.85 * (v / max)).toFixed(2) : 0.1;
-      const textColor = v > 0 ? '#ffffff' : 'var(--text-muted)';
-      html += `<div class="heatmap-cell" style="background:rgba(79,131,247,${opacity}); color: ${textColor}" title="${v.toFixed(0)} грн">${v > 0 ? Math.round(v) : ''}</div>`;
+      const color   = v > 0 ? '#ffffff' : 'var(--text-muted)';
+      html += `<div class="heatmap-cell" style="background:rgba(79,131,247,${opacity});color:${color}" title="${v.toFixed(0)} грн">${v > 0 ? Math.round(v) : ''}</div>`;
     });
   });
   html += '</div>';
   heatmapEl.innerHTML = html;
 }
 
-// ── Range ────────────────────────────────────────────────────
+// ── Range ────────────────────────────────────────────────
 function renderRange() {
   const from = rangeFrom.value;
-  const to = rangeTo.value;
-  if (!from && !to) {
-    rangeTotalEl.textContent = '0 грн';
-    rangeCountEl.textContent = '0';
-    return;
-  }
+  const to   = rangeTo.value;
+  if (!from && !to) { rangeTotalEl.textContent = '0 грн'; rangeCountEl.textContent = '0'; return; }
   const filtered = allTrips.filter((t) => {
     if (t.kmOnly) return false;
     if (from && t.dateKey < from) return false;
-    if (to && t.dateKey > to) return false;
+    if (to   && t.dateKey > to)   return false;
     return true;
   });
   rangeTotalEl.textContent = filtered.reduce((s, t) => s + t.total, 0).toFixed(0) + ' грн';
   rangeCountEl.textContent = filtered.length;
 }
-
 rangeFrom.addEventListener('change', renderRange);
 rangeTo.addEventListener('change', renderRange);
 
-// ── Compare badges ───────────────────────────────────────────
+// ── Compare ──────────────────────────────────────────────
 function compareBadge(current, previous) {
-  if (previous === 0) {
-    return current > 0 ? '<span class="badge up">▲</span>' : '<span class="badge">—</span>';
-  }
+  if (previous === 0) return current > 0 ? '<span class="badge up">▲</span>' : '<span class="badge">—</span>';
   const pct = ((current - previous) / previous) * 100;
-  const cls = pct >= 0 ? 'up' : 'down';
+  const cls  = pct >= 0 ? 'up' : 'down';
   const sign = pct >= 0 ? '▲' : '▼';
   return `<span class="badge ${cls}">${sign}${Math.abs(pct).toFixed(0)}%</span>`;
 }
 
 function renderCompare() {
-  const weekStart = startOfWeekKey();
-  const today = todayKey();
-  const prevWeekEnd = addDaysToKey(weekStart, -1);
+  const weekStart     = startOfWeekKey();
+  const today         = todayKey();
+  const prevWeekEnd   = addDaysToKey(weekStart, -1);
   const prevWeekStart = addDaysToKey(weekStart, -7);
-
-  const monthStart = startOfMonthKey();
-  const prevMonthEnd = addDaysToKey(monthStart, -1);
+  const monthStart    = startOfMonthKey();
+  const prevMonthEnd   = addDaysToKey(monthStart, -1);
   const prevMonthStart = startOfMonthFromKey(prevMonthEnd);
-
-  const curWeekTotal = sumRange(weekStart, today);
-  const prevWeekTotal = sumRange(prevWeekStart, prevWeekEnd);
-  const curMonthTotal = sumRange(monthStart, today);
-  const prevMonthTotal = sumRange(prevMonthStart, prevMonthEnd);
-
-  weekCompareEl.innerHTML = compareBadge(curWeekTotal, prevWeekTotal);
-  monthCompareEl.innerHTML = compareBadge(curMonthTotal, prevMonthTotal);
+  weekCompareEl.innerHTML  = compareBadge(sumRange(weekStart, today), sumRange(prevWeekStart, prevWeekEnd));
+  monthCompareEl.innerHTML = compareBadge(sumRange(monthStart, today), sumRange(prevMonthStart, prevMonthEnd));
 }
 
-// ── PDF ──────────────────────────────────────────────────────
+// ── PDF ───────────────────────────────────────────────────
 exportPdfBtn.addEventListener('click', async () => {
   const oldText = exportPdfBtn.textContent;
   exportPdfBtn.textContent = 'Генерація...';
   exportPdfBtn.disabled = true;
-
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
     const resp = await fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf');
     if (!resp.ok) throw new Error('Font load failed');
-    const fontBuf = await resp.arrayBuffer();
-    const fontB64 = btoa(
-      new Uint8Array(fontBuf).reduce((data, byte) => data + String.fromCharCode(byte), '')
-    );
-
+    const fontB64 = btoa(new Uint8Array(await resp.arrayBuffer()).reduce((d, b) => d + String.fromCharCode(b), ''));
     doc.addFileToVFS('Roboto-Regular.ttf', fontB64);
     doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
     doc.setFont('Roboto', 'normal');
-
     doc.setFontSize(18);
     doc.text('Звіт по заробітку', 14, 20);
-    doc.setFontSize(10);
-    doc.setTextColor(120, 120, 120);
+    doc.setFontSize(10); doc.setTextColor(120, 120, 120);
     doc.text('Дата: ' + new Date().toLocaleDateString('uk-UA'), 14, 30);
     doc.setTextColor(0, 0, 0);
-
     let y = 45;
-    const line = (label, value) => {
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.text(label, 14, y);
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(12);
-      doc.text(String(value), 100, y);
-      y += 9;
-    };
-    const separator = () => {
-      doc.setDrawColor(220, 220, 220);
-      doc.line(14, y, 196, y);
-      y += 6;
-    };
-
+    const line = (label, value) => { doc.setFontSize(10); doc.setTextColor(100,100,100); doc.text(label,14,y); doc.setTextColor(0,0,0); doc.setFontSize(12); doc.text(String(value),100,y); y+=9; };
+    const sep = () => { doc.setDrawColor(220,220,220); doc.line(14,y,196,y); y+=6; };
     line('Сьогодні зароблено:', todayTotalEl.textContent + ' грн (' + todayCountEl.textContent + ' поїздок)');
-    line('Чайові сьогодні:', todayTipsEl.textContent + ' грн');
-    separator();
+    line('Чайові сьогодні:', todayTipsEl.textContent + ' грн'); sep();
     line('Витрати сьогодні:', todayExpensesEl.textContent);
     line('Комісія Uklon:', todayCommissionEl.textContent);
-    line('Чистими сьогодні:', todayNetEl.textContent);
-    separator();
+    line('Чистими сьогодні:', todayNetEl.textContent); sep();
     line('Загалом за тиждень:', weekTotalEl.textContent + ' грн');
     line('Загалом за місяць:', monthTotalEl.textContent + ' грн');
-
     doc.save('zvit-' + todayKey() + '.pdf');
-  } catch (error) {
-    console.error('PDF generation error:', error);
-    const lines = [
-      'Звіт по заробітку',
-      'Дата: ' + new Date().toLocaleDateString('uk-UA'),
-      '',
-      'Сьогодні: ' + todayTotalEl.textContent + ' грн (' + todayCountEl.textContent + ' поїздок)',
-      'Чайові: ' + todayTipsEl.textContent + ' грн',
-      'Витрати: ' + todayExpensesEl.textContent,
-      'Комісія Uklon: ' + todayCommissionEl.textContent,
-      'Чистими: ' + todayNetEl.textContent,
-      '',
-      'Тиждень: ' + weekTotalEl.textContent + ' грн',
-      'Місяць: ' + monthTotalEl.textContent + ' грн',
+  } catch (err) {
+    console.error(err);
+    const txt = ['Звіт','Дата: '+new Date().toLocaleDateString('uk-UA'),'',
+      'Сьогодні: '+todayTotalEl.textContent+' грн (поїздок: '+todayCountEl.textContent+')',
+      'Чайові: '+todayTipsEl.textContent+' грн',
+      'Витрати: '+todayExpensesEl.textContent,
+      'Комісія: '+todayCommissionEl.textContent,
+      'Чистими: '+todayNetEl.textContent,'',
+      'Тиждень: '+weekTotalEl.textContent+' грн',
+      'Місяць: '+monthTotalEl.textContent+' грн',
     ].join('\n');
-    const blob = new Blob(['\uFEFF' + lines], { type: 'text/plain;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = 'zvit-' + todayKey() + '.txt';
+    a.href = URL.createObjectURL(new Blob(['\uFEFF'+txt],{type:'text/plain;charset=utf-8;'}));
+    a.download = 'zvit-'+todayKey()+'.txt';
     a.click();
-    URL.revokeObjectURL(url);
   } finally {
     exportPdfBtn.textContent = oldText;
     exportPdfBtn.disabled = false;
   }
 });
 
-// ── Тема ─────────────────────────────────────────────────────
-function getDefaultTheme() {
-  const hour = new Date().getHours();
-  return (hour >= 7 && hour < 19) ? 'light' : 'dark';
-}
-
+// ── Тема ───────────────────────────────────────────────────
 function applyTheme(theme) {
   document.body.classList.toggle('light', theme === 'light');
   themeToggleBtn.textContent = theme === 'light' ? '🌙' : '☀️';
 }
 
-let currentTheme = localStorage.getItem('theme') || getDefaultTheme();
+let currentTheme = localStorage.getItem('theme') || ((new Date().getHours() >= 7 && new Date().getHours() < 19) ? 'light' : 'dark');
 applyTheme(currentTheme);
 
 themeToggleBtn.addEventListener('click', () => {
