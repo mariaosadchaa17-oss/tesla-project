@@ -4,8 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
   <title>Заробіток | Uklon</title>
-
-  <!-- Тема застосовується ДО CSS, щоб не було мерехтіння в PWA -->
   <script>
     (function() {
       var hour = new Date().getHours();
@@ -14,7 +12,6 @@
       if (theme === 'light') document.documentElement.classList.add('light');
     })();
   </script>
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -23,7 +20,6 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Заробіток" />
-
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -185,6 +181,42 @@
       </div>
     </div>
 
+    <!-- ФОП 2 група — нагадування про сплату -->
+    <div class="card fop-card" id="fop-card">
+      <div class="fop-header">
+        <span class="fop-icon">📅</span>
+        <h3 style="margin:0;">ФОП 2 група — податки</h3>
+      </div>
+      <div id="fop-status" class="fop-status"></div>
+      <div class="fop-taxes">
+        <div class="fop-tax-row">
+          <span>Єдиний податок <span class="fop-period">(1–20 числа)</span></span>
+          <div class="fop-amount-row">
+            <input type="number" id="fop-ep" class="fop-input" value="1729" />
+            <span class="fop-grn">грн</span>
+          </div>
+        </div>
+        <div class="fop-tax-row">
+          <span>Військовий збір <span class="fop-period">(1–20 числа)</span></span>
+          <div class="fop-amount-row">
+            <input type="number" id="fop-vz" class="fop-input" value="865" />
+            <span class="fop-grn">грн</span>
+          </div>
+        </div>
+        <div class="fop-tax-row">
+          <span>ЄСВ <span class="fop-period">(щоквартально, до 20-го)</span></span>
+          <div class="fop-amount-row">
+            <input type="number" id="fop-esv" class="fop-input" value="1902" />
+            <span class="fop-grn">грн</span>
+          </div>
+        </div>
+      </div>
+      <div class="fop-total-row">
+        <span>Щомісяць (єп + вз):</span>
+        <span id="fop-monthly-total" class="card-value negative">2 594 грн</span>
+      </div>
+    </div>
+
     <div style="margin-top: 20px;">
       <button id="export-pdf-btn" class="shift-btn" style="width:100%;">📄 PDF Звіт</button>
     </div>
@@ -212,6 +244,71 @@
     document.getElementById('zoom-in').addEventListener('click', () => { if (zoomIdx < ZOOM_STEPS.length - 1) { zoomIdx++; applyZoom(); } });
     document.getElementById('zoom-out').addEventListener('click', () => { if (zoomIdx > 0) { zoomIdx--; applyZoom(); } });
     applyZoom();
+
+    // ── ФОП нагадування ──
+    function renderFop() {
+      const day = new Date().getDate();
+      const month = new Date().getMonth() + 1;
+      const year = new Date().getFullYear();
+
+      const ep  = Number(document.getElementById('fop-ep').value)  || 0;
+      const vz  = Number(document.getElementById('fop-vz').value)  || 0;
+      const esv = Number(document.getElementById('fop-esv').value) || 0;
+
+      document.getElementById('fop-monthly-total').textContent =
+        (ep + vz).toLocaleString('uk-UA') + ' грн';
+
+      const statusEl = document.getElementById('fop-status');
+
+      // Визначаємо поточний період сплати: з 1-го по точно 20-го
+      const fromDate = new Date(year, month - 1, 1);
+      const toDate   = new Date(year, month - 1, 20);
+
+      const fromStr = fromDate.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+      const toStr   = toDate.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+
+      // ЕСВ — щоквартально: місяцьпо кварталу (4, 7, 10, 1)
+      const esvMonths = [4, 7, 10, 1];
+      const isEsvMonth = esvMonths.includes(month);
+
+      if (day <= 20) {
+        // Ще не сплачено
+        const daysLeft = 20 - day;
+        let html = `<div class="fop-alert fop-warn">
+          ⚠️ Сплата єп + вз: з ${fromStr} до ${toStr}<br>
+          Залишилось <strong>${daysLeft} днів</strong>
+        </div>`;
+        if (isEsvMonth && day <= 20) {
+          html += `<div class="fop-alert fop-warn" style="margin-top:8px;">
+            ⚠️ Цей місяць також сплачується ЄСВ — ${esv.toLocaleString('uk-UA')} грн
+          </div>`;
+        }
+        statusEl.innerHTML = html;
+      } else {
+        // Сплачено цього місяця, наступний період — наступний місяць
+        const nextMonth = month === 12 ? 1 : month + 1;
+        const nextYear  = month === 12 ? year + 1 : year;
+        const nextFrom = new Date(nextYear, nextMonth - 1, 1).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+        const nextTo   = new Date(nextYear, nextMonth - 1, 20).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+        statusEl.innerHTML = `<div class="fop-alert fop-ok">
+          ✅ Цього місяця сплачено<br>
+          Наступний період: з ${nextFrom} до ${nextTo}
+        </div>`;
+      }
+    }
+
+    // Збереження змін сум в localStorage
+    ['fop-ep','fop-vz','fop-esv'].forEach(id => {
+      const el = document.getElementById(id);
+      const saved = localStorage.getItem(id);
+      if (saved) el.value = saved;
+      el.addEventListener('input', () => {
+        localStorage.setItem(id, el.value);
+        renderFop();
+      });
+    });
+
+    renderFop();
   </script>
 </body>
 </html>
