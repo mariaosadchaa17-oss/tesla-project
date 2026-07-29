@@ -18,24 +18,10 @@ const historyList = document.getElementById('history-list');
 const todayTotalEl = document.getElementById('today-total');
 const todayTipsEl = document.getElementById('today-tips');
 const todayCountEl = document.getElementById('today-count');
-const chargeFill = document.getElementById('charge-fill');
-const chargeLabel = document.getElementById('charge-label');
-const goalInput = document.getElementById('goal-input');
-const goalForm = document.getElementById('goal-form');
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
-
-let goal = Number(localStorage.getItem('dailyGoal')) || 3000;
-goalInput.value = goal;
-
-goalForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  goal = Number(goalInput.value) || 0;
-  localStorage.setItem('dailyGoal', goal);
-  render();
-});
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -77,10 +63,6 @@ function render() {
   todayTotalEl.textContent = totalSum.toFixed(0);
   todayTipsEl.textContent = tipsSum.toFixed(0);
   todayCountEl.textContent = todayTrips.length;
-
-  const pct = goal > 0 ? Math.min(100, Math.round((totalSum / goal) * 100)) : 0;
-  chargeFill.style.width = pct + '%';
-  chargeLabel.textContent = pct + '% від цілі ' + goal + ' грн';
 
   historyList.innerHTML = '';
   todayTrips.forEach((t) => {
