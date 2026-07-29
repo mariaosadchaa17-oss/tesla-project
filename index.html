@@ -204,9 +204,8 @@
     const lockHint    = document.getElementById('lock-hint');
     const lockError   = document.getElementById('lock-error');
 
-    // SHA-256 паролю → hex-рядок (стає userId)
     async function hashPass(pass) {
-      const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass));
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass));
       return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
     }
 
@@ -224,7 +223,6 @@
       setTimeout(() => lockInput.focus(), 100);
     }
 
-    // Перевірка сесії при запуску
     const savedUid = sessionStorage.getItem(SESSION_KEY);
     if (savedUid) { showApp(savedUid); } else { showLock(); }
 
@@ -238,7 +236,6 @@
       lockError.textContent = '';
       lockSubmit.textContent = '...';
       const uid = await hashPass(val);
-      // Зберігаємо в sessionStorage — закривши вкладку — знову питає пароль
       sessionStorage.setItem(SESSION_KEY, uid);
       lockSubmit.textContent = 'Увійти';
       showApp(uid);
@@ -249,23 +246,22 @@
       showLock();
     });
 
-    // ═══════════════════ ІНІЦІАЛІЗАЦІЯ ЗАСТОСУНКУ ═══════════════════
     function initApp(uid) {
-      // Дата
       const dateEl = document.getElementById('current-date');
       if (dateEl) dateEl.textContent = new Date().toLocaleDateString('uk-UA', { weekday:'long', day:'numeric', month:'long' });
 
-      // Зум
+      // Зум — дефолт 120%
       const ZOOM_STEPS = [70,80,90,100,110,120,130,150];
-      let zoomIdx = ZOOM_STEPS.indexOf(Number(localStorage.getItem('appZoom'))||100);
-      if (zoomIdx < 0) zoomIdx = 3;
+      const savedZoom = Number(localStorage.getItem('appZoom'));
+      let zoomIdx = savedZoom ? ZOOM_STEPS.indexOf(savedZoom) : 5; // 5 = 120%
+      if (zoomIdx < 0) zoomIdx = 5;
       function applyZoom() {
         const z = ZOOM_STEPS[zoomIdx];
-        document.getElementById('app-root').style.zoom = z/100;
-        document.getElementById('zoom-label').textContent = z+'%';
+        document.getElementById('app-root').style.zoom = z / 100;
+        document.getElementById('zoom-label').textContent = z + '%';
         localStorage.setItem('appZoom', z);
         document.getElementById('zoom-out').disabled = zoomIdx === 0;
-        document.getElementById('zoom-in').disabled  = zoomIdx === ZOOM_STEPS.length-1;
+        document.getElementById('zoom-in').disabled  = zoomIdx === ZOOM_STEPS.length - 1;
       }
       document.getElementById('zoom-in').addEventListener('click',  () => { if (zoomIdx < ZOOM_STEPS.length-1) { zoomIdx++; applyZoom(); } });
       document.getElementById('zoom-out').addEventListener('click', () => { if (zoomIdx > 0) { zoomIdx--; applyZoom(); } });
@@ -303,7 +299,6 @@
       document.getElementById('fop-btn-unpaid').addEventListener('click', () => { localStorage.removeItem(fopMonthKey()); renderFop(); });
       renderFop();
 
-      // Передаємо uid у app.js
       if (typeof startAppWithUid === 'function') startAppWithUid(uid);
     }
   </script>
