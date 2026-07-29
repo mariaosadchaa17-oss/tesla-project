@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
-  <title>Заробіток | Uklon</title>
+  <title>Rukh</title>
   <script>
     (function() {
       var hour = new Date().getHours();
@@ -19,7 +19,7 @@
   <link rel="manifest" href="manifest.json" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Заробіток" />
+  <meta name="apple-mobile-web-app-title" content="Rukh" />
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -28,7 +28,7 @@
   <div class="app" id="app-root">
     <header class="header">
       <div>
-        <h1>Заробіток</h1>
+        <h1>Rukh</h1>
         <div class="date" id="current-date">Сьогодні</div>
       </div>
       <div class="header-right">
@@ -181,7 +181,6 @@
       </div>
     </div>
 
-    <!-- ФОП 2 група — нагадування про сплату -->
     <div class="card fop-card" id="fop-card">
       <div class="fop-header">
         <span class="fop-icon">📅</span>
@@ -245,47 +244,32 @@
     document.getElementById('zoom-out').addEventListener('click', () => { if (zoomIdx > 0) { zoomIdx--; applyZoom(); } });
     applyZoom();
 
-    // ── ФОП нагадування ──
     function renderFop() {
       const day = new Date().getDate();
       const month = new Date().getMonth() + 1;
       const year = new Date().getFullYear();
-
       const ep  = Number(document.getElementById('fop-ep').value)  || 0;
       const vz  = Number(document.getElementById('fop-vz').value)  || 0;
       const esv = Number(document.getElementById('fop-esv').value) || 0;
-
-      document.getElementById('fop-monthly-total').textContent =
-        (ep + vz).toLocaleString('uk-UA') + ' грн';
-
+      document.getElementById('fop-monthly-total').textContent = (ep + vz).toLocaleString('uk-UA') + ' грн';
       const statusEl = document.getElementById('fop-status');
-
-      // Визначаємо поточний період сплати: з 1-го по точно 20-го
-      const fromDate = new Date(year, month - 1, 1);
-      const toDate   = new Date(year, month - 1, 20);
-
-      const fromStr = fromDate.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
-      const toStr   = toDate.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
-
-      // ЕСВ — щоквартально: місяцьпо кварталу (4, 7, 10, 1)
+      const fromStr = new Date(year, month - 1, 1).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+      const toStr   = new Date(year, month - 1, 20).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
       const esvMonths = [4, 7, 10, 1];
       const isEsvMonth = esvMonths.includes(month);
-
       if (day <= 20) {
-        // Ще не сплачено
         const daysLeft = 20 - day;
         let html = `<div class="fop-alert fop-warn">
           ⚠️ Сплата єп + вз: з ${fromStr} до ${toStr}<br>
-          Залишилось <strong>${daysLeft} днів</strong>
+          Залишилось <strong>${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дні' : 'днів'}</strong>
         </div>`;
-        if (isEsvMonth && day <= 20) {
+        if (isEsvMonth) {
           html += `<div class="fop-alert fop-warn" style="margin-top:8px;">
             ⚠️ Цей місяць також сплачується ЄСВ — ${esv.toLocaleString('uk-UA')} грн
           </div>`;
         }
         statusEl.innerHTML = html;
       } else {
-        // Сплачено цього місяця, наступний період — наступний місяць
         const nextMonth = month === 12 ? 1 : month + 1;
         const nextYear  = month === 12 ? year + 1 : year;
         const nextFrom = new Date(nextYear, nextMonth - 1, 1).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
@@ -297,17 +281,12 @@
       }
     }
 
-    // Збереження змін сум в localStorage
     ['fop-ep','fop-vz','fop-esv'].forEach(id => {
       const el = document.getElementById(id);
       const saved = localStorage.getItem(id);
       if (saved) el.value = saved;
-      el.addEventListener('input', () => {
-        localStorage.setItem(id, el.value);
-        renderFop();
-      });
+      el.addEventListener('input', () => { localStorage.setItem(id, el.value); renderFop(); });
     });
-
     renderFop();
   </script>
 </body>
