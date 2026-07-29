@@ -9,8 +9,6 @@
   --tip: #f2b705;
   --radius: 14px;
 }
-
-/* Тема на <html> — працює і в PWA на iOS */
 html.light {
   --bg: #f5f6f4;
   --surface: #ffffff;
@@ -21,8 +19,6 @@ html.light {
   --charge: #0f8a5f;
   --tip: #b8790a;
 }
-
-/* Для зворотної сумісності: якщо клас стоїть на body */
 body.light {
   --bg: #f5f6f4;
   --surface: #ffffff;
@@ -33,10 +29,8 @@ body.light {
   --charge: #0f8a5f;
   --tip: #b8790a;
 }
-
 * { box-sizing: border-box; }
 html { touch-action: manipulation; }
-
 body {
   margin: 0;
   background: var(--bg);
@@ -46,43 +40,21 @@ body {
   transition: background 0.2s ease, color 0.2s ease;
   -webkit-text-size-adjust: 100%;
 }
-
-.app {
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 24px 16px 60px;
-  transform-origin: top center;
-}
+.app { max-width: 480px; margin: 0 auto; padding: 24px 16px 60px; transform-origin: top center; }
 
 /* ── Header ── */
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 8px;
-}
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
 .header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .header h1 { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 24px; margin: 0; }
 .date { color: var(--text-muted); font-size: 13px; text-transform: capitalize; }
 
 /* ── Zoom ── */
 .zoom-control { display: flex; align-items: center; gap: 2px; background: var(--surface-2); border-radius: 10px; padding: 2px 4px; }
-.zoom-btn {
-  background: none; border: none; color: var(--text);
-  font-size: 18px; line-height: 1; width: 28px; height: 28px;
-  border-radius: 6px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; transition: background 0.1s;
-}
+.zoom-btn { background: none; border: none; color: var(--text); font-size: 18px; line-height: 1; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.1s; }
 .zoom-btn:hover:not(:disabled) { background: var(--surface); }
 .zoom-btn:disabled { opacity: 0.3; cursor: default; }
 .zoom-label { font-size: 12px; color: var(--text-muted); min-width: 36px; text-align: center; }
-.theme-toggle {
-  background: var(--surface-2); border: none; border-radius: 8px;
-  width: 34px; height: 34px; font-size: 16px; cursor: pointer;
-  color: var(--text); display: flex; align-items: center; justify-content: center;
-}
+.theme-toggle { background: var(--surface-2); border: none; border-radius: 8px; width: 34px; height: 34px; font-size: 16px; cursor: pointer; color: var(--text); display: flex; align-items: center; justify-content: center; }
 
 /* ── Charge card ── */
 .charge-card { background: var(--surface); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
@@ -94,10 +66,7 @@ body {
 .commission-inline-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .commission-inline-label { font-size: 13px; color: var(--text-muted); }
 .commission-inline-right { display: flex; align-items: center; gap: 6px; }
-.commission-pct-input {
-  width: 52px; background: var(--surface-2); border: 1px solid var(--surface-2);
-  border-radius: 8px; padding: 5px 6px; color: var(--text); text-align: center; font-size: 14px; font-weight: 600;
-}
+.commission-pct-input { width: 52px; background: var(--surface-2); border: 1px solid var(--surface-2); border-radius: 8px; padding: 5px 6px; color: var(--text); text-align: center; font-size: 14px; font-weight: 600; }
 .commission-pct-sign { font-size: 13px; color: var(--text-muted); }
 .commission-amount { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px; color: var(--tip); }
 
@@ -122,10 +91,7 @@ body {
 .field { flex: 1 1 calc(50% - 5px); min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .field--full { flex: 1 1 100%; }
 .field label { font-size: 13px; color: var(--text-muted); }
-.field input {
-  background: var(--surface); border: 1px solid var(--surface-2);
-  border-radius: 10px; padding: 12px; color: var(--text); font-size: 18px; width: 100%; min-width: 0;
-}
+.field input { background: var(--surface); border: 1px solid var(--surface-2); border-radius: 10px; padding: 12px; color: var(--text); font-size: 18px; width: 100%; min-width: 0; }
 .field input:focus { outline: none; border-color: var(--accent); }
 .amount-row { display: flex; gap: 6px; }
 .mic-btn { background: var(--surface-2); border: none; border-radius: 10px; width: 44px; flex-shrink: 0; color: var(--text); font-size: 16px; cursor: pointer; }
@@ -134,38 +100,22 @@ body {
 
 /* ── Payment options ── */
 .payment-options { display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
-.payment-label {
-  flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
-  font-size: 16px; font-weight: 500; color: var(--text); cursor: pointer;
-  background: var(--surface-2); border-radius: 10px; padding: 12px 10px;
-  transition: background 0.15s; white-space: nowrap;
-}
+.payment-label { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 16px; font-weight: 500; color: var(--text); cursor: pointer; background: var(--surface-2); border-radius: 10px; padding: 12px 10px; transition: background 0.15s; white-space: nowrap; }
 .payment-label:hover { background: var(--surface); }
 .payment-label input { accent-color: var(--accent); width: 16px; height: 16px; }
 
 /* ── Save button ── */
 .form-buttons { flex: 1 1 100%; display: flex; gap: 10px; margin-top: 6px; }
-.save-btn {
-  flex-grow: 1; background: var(--accent); color: #fff; border: none;
-  border-radius: 12px; padding: 14px 20px; font-size: 15px; font-weight: 700;
-  cursor: pointer; letter-spacing: 0.2px; transition: opacity 0.15s, transform 0.1s;
-}
+.save-btn { flex-grow: 1; background: var(--accent); color: #fff; border: none; border-radius: 12px; padding: 14px 20px; font-size: 15px; font-weight: 700; cursor: pointer; letter-spacing: 0.2px; transition: opacity 0.15s, transform 0.1s; }
 .save-btn:hover { opacity: 0.9; }
 .save-btn:active { transform: scale(0.98); }
-.cancel-edit-btn {
-  background: var(--surface-2); color: var(--text); border: none;
-  border-radius: 12px; padding: 14px 16px; font-size: 14px; cursor: pointer; white-space: nowrap;
-}
+.cancel-edit-btn { background: var(--surface-2); color: var(--text); border: none; border-radius: 12px; padding: 14px 16px; font-size: 14px; cursor: pointer; white-space: nowrap; }
 
 /* ── History ── */
 .history { position: relative; z-index: 1; }
 .history h2 { font-size: 16px; font-weight: 500; color: var(--text-muted); margin: 0 0 10px; }
 .history-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.history-item {
-  display: grid; grid-template-columns: auto 1fr auto auto auto;
-  align-items: center; gap: 8px;
-  background: var(--surface); border-radius: 10px; padding: 12px 14px; font-size: 14px; min-width: 0;
-}
+.history-item { display: grid; grid-template-columns: auto 1fr auto auto auto; align-items: center; gap: 8px; background: var(--surface); border-radius: 10px; padding: 12px 14px; font-size: 14px; min-width: 0; }
 .history-time { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
 .history-amounts { text-align: left; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .history-tip { color: var(--tip); }
@@ -176,10 +126,7 @@ body {
 
 /* ── Expense form ── */
 .expense-form { display: flex; gap: 8px; flex-wrap: wrap; }
-.expense-form select, .expense-form input {
-  flex: 1; min-width: 90px; background: var(--surface-2); border: 1px solid var(--surface-2);
-  border-radius: 10px; padding: 10px; color: var(--text); font-size: 14px;
-}
+.expense-form select, .expense-form input { flex: 1; min-width: 90px; background: var(--surface-2); border: 1px solid var(--surface-2); border-radius: 10px; padding: 10px; color: var(--text); font-size: 14px; }
 .expense-form button { background: var(--tip); color: #1a1400; border: none; border-radius: 10px; padding: 10px 14px; font-weight: 500; cursor: pointer; white-space: nowrap; }
 
 /* ── Km input ── */
@@ -198,10 +145,64 @@ body {
 /* ── Shift btn (PDF) ── */
 .shift-btn { background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 12px 14px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; white-space: nowrap; }
 .shift-btn:hover { opacity: 0.9; }
-
 .badge { font-size: 10px; font-weight: 600; }
 .badge.up { color: var(--charge); }
 .badge.down { color: var(--tip); }
+
+/* ── ФОП картка ── */
+.fop-card { border: 1px solid var(--surface-2); }
+.fop-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.fop-icon { font-size: 18px; }
+.fop-status { margin-bottom: 12px; }
+.fop-alert {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.fop-warn {
+  background: rgba(242, 183, 5, 0.12);
+  border: 1px solid rgba(242, 183, 5, 0.3);
+  color: var(--tip);
+}
+.fop-ok {
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: var(--charge);
+}
+.fop-taxes { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.fop-tax-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.fop-tax-row > span { color: var(--text); }
+.fop-period { font-size: 11px; color: var(--text-muted); }
+.fop-amount-row { display: flex; align-items: center; gap: 5px; }
+.fop-input {
+  width: 70px;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-2);
+  border-radius: 8px;
+  padding: 5px 6px;
+  color: var(--text);
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+}
+.fop-grn { font-size: 12px; color: var(--text-muted); }
+.fop-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid var(--surface-2);
+  font-size: 14px;
+  font-weight: 500;
+}
 
 /* ── Mobile < 400px ── */
 @media (max-width: 400px) {
