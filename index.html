@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
-  <title>Улік поїздок | Uklon Tesla</title>
+  <title>Заробіток | Uklon</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +20,7 @@
   <div class="app" id="app-root">
     <header class="header">
       <div>
-        <h1>Tesla Trip Log</h1>
+        <h1>Заробіток</h1>
         <div class="date" id="current-date">Сьогодні</div>
       </div>
       <div class="header-right">
@@ -33,7 +33,6 @@
       </div>
     </header>
 
-    <!-- Зміна — компактна -->
     <div class="shift-card">
       <div class="shift-card-row">
         <span id="shift-status" class="shift-status-text">Зміну не розпочато</span>
@@ -45,7 +44,6 @@
       </div>
     </div>
 
-    <!-- Загальна сума + комісія -->
     <div class="charge-card">
       <div class="charge-top">
         <span class="charge-icon">⚡</span>
@@ -80,7 +78,6 @@
       </div>
     </div>
 
-    <!-- Форма: сума + чайові + тип оплати (без пробігу) -->
     <form id="trip-form" class="trip-form">
       <div class="field">
         <label for="amount">Сума замовлення</label>
@@ -148,7 +145,6 @@
       <ul id="expense-list" class="history-list" style="margin-top: 10px;"></ul>
     </div>
 
-    <!-- Пробіг перенесено сюди -->
     <div class="card">
       <h3>Економія на Tesla</h3>
       <div class="card-row">
@@ -159,7 +155,6 @@
         <span>Збережено (vs бензин):</span>
         <span id="tesla-savings" class="card-value positive">0 грн</span>
       </div>
-      <!-- Поле пробігу тут -->
       <div class="card-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--surface-2);">
         <label for="km" style="font-size:14px;">Додати пробіг (км)</label>
         <input type="number" id="km" placeholder="0" pattern="[0-9]*" inputmode="decimal"
