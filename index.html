@@ -34,6 +34,17 @@
     </div>
   </section>
 
+  <section class="stats-row">
+    <div class="stat">
+      <span class="stat-value" id="week-total">0</span>
+      <span class="stat-label">грн за тиждень</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value" id="month-total">0</span>
+      <span class="stat-label">грн за місяць</span>
+    </div>
+  </section>
+
   <form id="trip-form" class="trip-form">
     <div class="field">
       <label for="amount">Сума поїздки</label>
@@ -50,6 +61,11 @@
     <h2>Сьогодні</h2>
     <ul id="history-list" class="history-list"></ul>
   </section>
+
+  <details class="settings">
+    <summary>Останні 7 днів</summary>
+    <ul id="days-list" class="history-list"></ul>
+  </details>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
