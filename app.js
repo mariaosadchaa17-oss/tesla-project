@@ -45,6 +45,7 @@ const expenseList = document.getElementById('expense-list');
 const teslaKmEl = document.getElementById('tesla-km');
 const teslaSavingsEl = document.getElementById('tesla-savings');
 const saveKmBtn = document.getElementById('save-km-btn');
+const clearKmBtn = document.getElementById('clear-km-btn');
 
 const heatmapEl = document.getElementById('heatmap');
 const weekCompareEl = document.getElementById('week-compare');
@@ -209,6 +210,7 @@ expenseForm.addEventListener('submit', async (e) => {
   expenseAmount.value = '';
 });
 
+// ── Пробіг ──
 if (saveKmBtn) {
   saveKmBtn.addEventListener('click', async () => {
     const km = Number(kmInput.value) || 0;
@@ -222,6 +224,16 @@ if (saveKmBtn) {
     kmInput.value = '';
     saveKmBtn.textContent = '✓';
     setTimeout(() => { saveKmBtn.textContent = 'Зберегти'; }, 1500);
+  });
+}
+
+// ── Очистити весь пробіг ──
+if (clearKmBtn) {
+  clearKmBtn.addEventListener('click', async () => {
+    const kmTrips = allTrips.filter(t => t.kmOnly);
+    if (kmTrips.length === 0) return;
+    if (!confirm('Очистити весь пробіг? Цю дію не можна скасувати.')) return;
+    await Promise.all(kmTrips.map(t => tripsRef.doc(t.id).delete()));
   });
 }
 
