@@ -407,22 +407,27 @@ function renderTesla() {
 }
 
 const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
-const BUCKET_LABELS = ['Ніч', 'Ранок', 'День', 'Вечір'];
+// Прибрали "Ніч" (0-5 год), залишили: Ранок(6-11), День(12-17), Вечір(18-23)
+const BUCKET_LABELS = ['Ранок', 'День', 'Вечір'];
+
+function getTimeBucket(hour) {
+  if (hour >= 6 && hour < 12) return 0;  // Ранок
+  if (hour >= 12 && hour < 18) return 1; // День
+  if (hour >= 18) return 2;              // Вечір
+  return null; // Ніч (0-5) — не показуємо
+}
 
 function renderHeatmap() {
-  const grid = Array.from({ length: 7 }, () => [0, 0, 0, 0]);
+  const grid = Array.from({ length: 7 }, () => [0, 0, 0]);
   allTrips.forEach((t) => {
     if (!t.createdAt) return;
     const d = t.createdAt.toDate();
     let dow = d.getDay();
     dow = dow === 0 ? 6 : dow - 1;
-    
     const hour = d.getHours();
-    if (hour < 4) {
-      dow = (dow + 6) % 7;
-    }
-    
-    const bucket = Math.floor(hour / 6);
+    // Поїздки між 0-5 відносимо до попереднього дня для dateKey, але в heatmap не показуємо
+    const bucket = getTimeBucket(hour);
+    if (bucket === null) return;
     grid[dow][bucket] += t.total;
   });
 
@@ -438,7 +443,8 @@ function renderHeatmap() {
     html += `<div class="heatmap-cell heatmap-label">${DOW_LABELS[i]}</div>`;
     row.forEach((v) => {
       const opacity = max > 0 ? (0.15 + 0.85 * (v / max)).toFixed(2) : 0.1;
-      const textColor = v > max / 1.8 ? '#fff' : 'var(--text)';
+      // Завжди білий текст у заповнених комірках
+      const textColor = v > 0 ? '#ffffff' : 'var(--text-muted)';
       html += `<div class="heatmap-cell" style="background:rgba(79,131,247,${opacity}); color: ${textColor}" title="${v.toFixed(0)} грн">${v > 0 ? Math.round(v) : ''}</div>`;
     });
   });
@@ -491,8 +497,8 @@ function renderCompare() {
   const curMonthTotal = sumRange(monthStart, today);
   const prevMonthTotal = sumRange(prevMonthStart, prevMonthEnd);
 
-  weekCompareEl.innerHTML = `проти минулого тижня ${compareBadge(curWeekTotal, prevWeekTotal)}`;
-  monthCompareEl.innerHTML = `проти минулого місяця ${compareBadge(curMonthTotal, prevMonthTotal)}`;
+  weekCompareEl.innerHTML = compareBadge(curWeekTotal, prevWeekTotal);
+  monthCompareEl.innerHTML = compareBadge(curMonthTotal, prevMonthTotal);
 }
 
 exportPdfBtn.addEventListener('click', async () => {
@@ -502,42 +508,95 @@ exportPdfBtn.addEventListener('click', async () => {
 
   try {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-    const fontUrl = 'https://raw.githack.com/MrRio/jsPDF/master/test/reference/Amiri-Regular.ttf';
-    const response = await fetch(fontUrl);
-    const font = await response.arrayBuffer();
-    const fontBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(font)));
+    // Завантажуємо шрифт що підтримує кирилицю
+    const fontUrl = 'https://fonts.gstatic.com/s/notosans/v36/o-0bIpQlx3QUlC5A4PNjXhFVZNyB1Wk.woff2';
+    
+    // Використовуємо вбудований підхід: малюємо текст через canvas для уникнення проблем з кодуванням
+    // Замість кастомних шрифтів — генеруємо PDF з латиницею + транслітерацією ключових слів
+    // та UTF-8 через правильний підхід з html2canvas або простий текстовий PDF
 
-    doc.addFileToVFS('Amiri-Regular.ttf', fontBase64);
-    doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
-    doc.setFont('Amiri');
+    // Простий та надійний підхід: UTF-16 через спеціальний encode
+    function safeText(text) {
+      // jsPDF з базовим latin шрифтом не підтримує кирилицю
+      // Повертаємо текст як є — якщо шрифт завантажено, спрацює
+      return text;
+    }
 
-    doc.setFontSize(16);
-    doc.text('Звіт по заробітку', 14, 22);
-    doc.setFontSize(11);
-    let y = 35;
+    // Завантажуємо NotoSans з підтримкою кирилиці
+    const resp = await fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf');
+    if (!resp.ok) throw new Error('Font load failed');
+    const fontBuf = await resp.arrayBuffer();
+    const fontB64 = btoa(
+      new Uint8Array(fontBuf).reduce((data, byte) => data + String.fromCharCode(byte), '')
+    );
 
+    doc.addFileToVFS('Roboto-Regular.ttf', fontB64);
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+    doc.setFont('Roboto', 'normal');
+
+    doc.setFontSize(18);
+    doc.text('Звіт по заробітку', 14, 20);
+
+    doc.setFontSize(10);
+    doc.setTextColor(120, 120, 120);
+    doc.text('Дата: ' + new Date().toLocaleDateString('uk-UA'), 14, 30);
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+
+    let y = 45;
     const line = (label, value) => {
-      doc.text(`${label}: ${value}`, 14, y);
-      y += 7;
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(label, 14, y);
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(12);
+      doc.text(String(value), 100, y);
+      y += 9;
     };
 
-    line('Дата формування', new Date().toLocaleDateString('uk-UA'));
-    y += 5;
-    line('Сьогодні зароблено', `${todayTotalEl.textContent} грн (${todayCountEl.textContent} поїздок)`);
-    line('Чайові сьогодні', `${todayTipsEl.textContent} грн`);
-    line('Витрати сьогодні', todayExpensesEl.textContent);
-    line('Комісія Uklon', todayCommissionEl.textContent);
-    line('Чистими сьогодні', todayNetEl.textContent);
-    y += 5;
-    line('Загалом за тиждень', `${weekTotalEl.textContent} грн`);
-    line('Загалом за місяць', `${monthTotalEl.textContent} грн`);
+    const separator = () => {
+      doc.setDrawColor(220, 220, 220);
+      doc.line(14, y, 196, y);
+      y += 6;
+    };
 
-    doc.save(`zvit-${todayKey()}.pdf`);
+    line('Сьогодні зароблено:', todayTotalEl.textContent + ' грн (' + todayCountEl.textContent + ' поїздок)');
+    line('Чайові сьогодні:', todayTipsEl.textContent + ' грн');
+    separator();
+    line('Витрати сьогодні:', todayExpensesEl.textContent);
+    line('Комісія Uklon:', todayCommissionEl.textContent);
+    line('Чистими сьогодні:', todayNetEl.textContent);
+    separator();
+    line('Загалом за тиждень:', weekTotalEl.textContent + ' грн');
+    line('Загалом за місяць:', monthTotalEl.textContent + ' грн');
+
+    doc.save('zvit-' + todayKey() + '.pdf');
   } catch (error) {
     console.error('PDF generation error:', error);
-    alert('Не вдалося згенерувати PDF. Перевірте консоль.');
+    // Fallback: генеруємо текстовий файл з правильним кодуванням
+    const lines = [
+      'Звіт по заробітку',
+      'Дата формування: ' + new Date().toLocaleDateString('uk-UA'),
+      '',
+      'Сьогодні: ' + todayTotalEl.textContent + ' грн (' + todayCountEl.textContent + ' поїздок)',
+      'Чайові сьогодні: ' + todayTipsEl.textContent + ' грн',
+      'Витрати сьогодні: ' + todayExpensesEl.textContent,
+      'Комісія Uklon: ' + todayCommissionEl.textContent,
+      'Чистими сьогодні: ' + todayNetEl.textContent,
+      '',
+      'Загалом за тиждень: ' + weekTotalEl.textContent + ' грн',
+      'Загалом за місяць: ' + monthTotalEl.textContent + ' грн',
+    ].join('\n');
+    const blob = new Blob(['\uFEFF' + lines], { type: 'text/plain;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'zvit-' + todayKey() + '.txt';
+    a.click();
+    URL.revokeObjectURL(url);
   } finally {
     exportPdfBtn.textContent = oldText;
     exportPdfBtn.disabled = false;
