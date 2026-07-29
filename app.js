@@ -65,10 +65,9 @@ let allExpenses = [];
 let commissionPercent = Number(localStorage.getItem('uklonCommission')) || 15;
 commissionInput.value = commissionPercent;
 
-// ── Логіка дат ───────────────────────────────────
+// ── Логіка дат — день з 00:00 до 23:59 ──────────────────────
 function dateKeyOf(date) {
   const d = new Date(date);
-  if (d.getHours() < 4) d.setDate(d.getDate() - 1);
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -85,20 +84,19 @@ function startOfMonthKey() { const d = new Date(); d.setDate(1); return dateKeyO
 function addDaysToKey(key, delta) { const d = new Date(key); d.setDate(d.getDate() + delta); return dateKeyOf(d); }
 function startOfMonthFromKey(key) { const d = new Date(key); d.setDate(1); return dateKeyOf(d); }
 
+// Авто-оновлення о 00:00
 function scheduleNextDayReset() {
   const now = new Date();
   const next = new Date(now);
-  if (now.getHours() >= 4) next.setDate(next.getDate() + 1);
-  next.setHours(4, 0, 0, 0);
+  next.setDate(next.getDate() + 1);
+  next.setHours(0, 0, 0, 0);
   setTimeout(() => { render(); scheduleNextDayReset(); }, next.getTime() - now.getTime());
 }
 scheduleNextDayReset();
 
-// ── Тема ─────────────────────────────────────────
+// ── Тема ─────────────────────────────────────────────────────
 function applyTheme(theme) {
-  // Клас на <html> — надійно працює в PWA на iOS/Android
   document.documentElement.classList.toggle('light', theme === 'light');
-  // Також на body — для зворотної сумісності
   document.body.classList.toggle('light', theme === 'light');
   themeToggleBtn.textContent = theme === 'light' ? '🌙' : '☀️';
 }
@@ -112,7 +110,7 @@ themeToggleBtn.addEventListener('click', () => {
   applyTheme(currentTheme);
 });
 
-// ── Форма поїздки ───────────────────────────────
+// ── Форма поїздки ─────────────────────────────────────────────
 function getPaymentValue() {
   const checked = form.querySelector('input[name="payment"]:checked');
   return checked ? checked.value : 'cash';
@@ -171,7 +169,7 @@ document.querySelectorAll('.quick-tip-btn').forEach((btn) => {
   btn.addEventListener('click', () => { tipInput.value = btn.dataset.val; });
 });
 
-// ── Голосовий ввід ──────────────────────────────
+// ── Голосовий ввід ────────────────────────────────────────────
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (SpeechRecognitionCtor && micBtn) {
   const recognition = new SpeechRecognitionCtor();
@@ -184,7 +182,7 @@ if (SpeechRecognitionCtor && micBtn) {
   };
 } else if (micBtn) { micBtn.style.display = 'none'; }
 
-// ── Firebase ───────────────────────────────────────
+// ── Firebase ──────────────────────────────────────────────────
 tripsRef.orderBy('createdAt', 'desc').limit(1000).onSnapshot((snapshot) => {
   allTrips = snapshot.docs.map((doc) => {
     const data = doc.data();
@@ -196,7 +194,7 @@ tripsRef.orderBy('createdAt', 'desc').limit(1000).onSnapshot((snapshot) => {
 
 expensesRef.orderBy('createdAt', 'desc').limit(500).onSnapshot((snapshot) => {
   allExpenses = snapshot.docs.map((doc) => {
-    const data = doc.data();
+    const data = doc.data();\
     if (data.createdAt) data.dateKey = dateKeyOf(data.createdAt.toDate());
     return { id: doc.id, ...data };
   });
@@ -234,7 +232,7 @@ if (saveKmBtn) {
   });
 }
 
-// ── Render ─────────────────────────────────────────────
+// ── Render ────────────────────────────────────────────────────
 function sumRange(from, to) {
   return allTrips.filter((t) => !t.kmOnly && t.dateKey >= from && t.dateKey <= to).reduce((s, t) => s + t.total, 0);
 }
