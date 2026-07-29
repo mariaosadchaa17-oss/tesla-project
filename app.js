@@ -65,7 +65,7 @@ let allExpenses = [];
 let commissionPercent = Number(localStorage.getItem('uklonCommission')) || 15;
 commissionInput.value = commissionPercent;
 
-// ── Дати: день з 00:00 до 23:59 ───────────────────────────
+// ── Дати ────────────────────────────────────────────────
 function dateKeyOf(date) {
   const d = new Date(date);
   const y = d.getFullYear();
@@ -83,8 +83,23 @@ function startOfWeekKey() {
 function startOfMonthKey() { const d = new Date(); d.setDate(1); return dateKeyOf(d); }
 function addDaysToKey(key, delta) { const d = new Date(key); d.setDate(d.getDate() + delta); return dateKeyOf(d); }
 function startOfMonthFromKey(key) { const d = new Date(key); d.setDate(1); return dateKeyOf(d); }
+function formatDateUA(key) {
+  return new Date(key).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+}
 
-// Авто-оновлення о 00:00
+// Обчислює дати поточного тижня (Пн–Нд)
+function getWeekDates() {
+  const today = new Date();
+  const dow = today.getDay() === 0 ? 7 : today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dow - 1));
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+}
+
 function scheduleNextDayReset() {
   const now = new Date();
   const next = new Date(now);
@@ -94,7 +109,7 @@ function scheduleNextDayReset() {
 }
 scheduleNextDayReset();
 
-// ── Тема ─────────────────────────────────────────────
+// ── Тема ────────────────────────────────────────────────
 function applyTheme(theme) {
   document.documentElement.classList.toggle('light', theme === 'light');
   document.body.classList.toggle('light', theme === 'light');
@@ -108,7 +123,7 @@ themeToggleBtn.addEventListener('click', () => {
   applyTheme(currentTheme);
 });
 
-// ── Форма поїздки ───────────────────────────────
+// ── Форма поїздки ───────────────────────────────────
 function getPaymentValue() {
   const checked = form.querySelector('input[name="payment"]:checked');
   return checked ? checked.value : 'cash';
@@ -167,7 +182,7 @@ document.querySelectorAll('.quick-tip-btn').forEach((btn) => {
   btn.addEventListener('click', () => { tipInput.value = btn.dataset.val; });
 });
 
-// ── Голосовий ввід ─────────────────────────────────
+// ── Голосовий ввід ──────────────────────────────────
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (SpeechRecognitionCtor && micBtn) {
   const recognition = new SpeechRecognitionCtor();
@@ -180,7 +195,7 @@ if (SpeechRecognitionCtor && micBtn) {
   };
 } else if (micBtn) { micBtn.style.display = 'none'; }
 
-// ── Firebase onSnapshot ──────────────────────────────────
+// ── Firebase ──────────────────────────────────────────────
 tripsRef.orderBy('createdAt', 'desc').limit(1000).onSnapshot((snapshot) => {
   allTrips = snapshot.docs.map((doc) => {
     const data = doc.data();
@@ -214,7 +229,7 @@ expenseForm.addEventListener('submit', async (e) => {
   expenseAmount.value = '';
 });
 
-// ── Пробіг ───────────────────────────────────────────────
+// ── Пробіг ────────────────────────────────────────────────
 if (saveKmBtn) {
   saveKmBtn.addEventListener('click', async () => {
     const km = Number(kmInput.value) || 0;
@@ -262,7 +277,6 @@ function render() {
   todayCommissionEl.textContent = '= ' + todayCommission.toFixed(0) + ' грн';
   todayNetEl.textContent = (todayTotal - todayCommission - todayExpensesTotal).toFixed(0) + ' грн';
 
-  // Список поїздок
   historyList.innerHTML = '';
   todayTrips.forEach((t) => {
     const li = document.createElement('li');
@@ -285,7 +299,6 @@ function render() {
   if (todayTrips.length === 0)
     historyList.innerHTML = '<li class="empty">Поки немає замовлень за сьогодні</li>';
 
-  // Список витрат
   expenseList.innerHTML = '';
   todayExpensesList.forEach((x) => {
     const li = document.createElement('li');
@@ -317,15 +330,17 @@ function renderTesla() {
   teslaSavingsEl.textContent = Math.max(0, gasCost - evCost).toFixed(0) + ' грн';
 }
 
-// ── Heatmap ─────────────────────────────────────────────
+// ── Heatmap з датами ────────────────────────────────────────
 const DOW_LABELS    = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
 const BUCKET_LABELS = ['Ранок', 'День', 'Вечір'];
+
 function getTimeBucket(hour) {
   if (hour >= 6  && hour < 12) return 0;
   if (hour >= 12 && hour < 18) return 1;
   if (hour >= 18) return 2;
   return null;
 }
+
 function renderHeatmap() {
   const grid = Array.from({ length: 7 }, () => [0, 0, 0]);
   allTrips.forEach((t) => {
@@ -336,13 +351,28 @@ function renderHeatmap() {
     if (bucket === null) return;
     grid[dow][bucket] += t.total;
   });
+
   let max = 0;
   grid.forEach((row) => row.forEach((v) => { if (v > max) max = v; }));
+
+  const weekDates = getWeekDates();
+  const todayStr  = dateKeyOf(new Date());
+
   let html = '<div class="heatmap-grid">';
   html += '<div class="heatmap-cell heatmap-label"></div>';
   BUCKET_LABELS.forEach((b) => { html += `<div class="heatmap-cell heatmap-label">${b}</div>`; });
+
   grid.forEach((row, i) => {
-    html += `<div class="heatmap-cell heatmap-label">${DOW_LABELS[i]}</div>`;
+    const d = weekDates[i];
+    const dateStr = dateKeyOf(d);
+    const isToday = dateStr === todayStr;
+    const labelStyle = isToday ? 'color:var(--accent);font-weight:700;' : '';
+    const dayNum  = d.getDate();
+    const monNum  = String(d.getMonth() + 1).padStart(2, '0');
+    html += `<div class="heatmap-cell heatmap-label heatmap-day-label" style="${labelStyle}">
+      <span class="hm-dow">${DOW_LABELS[i]}</span>
+      <span class="hm-date">${dayNum}.${monNum}</span>
+    </div>`;
     row.forEach((v) => {
       const opacity = max > 0 ? (0.15 + 0.85 * (v / max)).toFixed(2) : 0.1;
       const color   = v > 0 ? '#ffffff' : 'var(--text-muted)';
@@ -370,7 +400,6 @@ rangeFrom.addEventListener('change', renderRange);
 rangeTo.addEventListener('change', renderRange);
 
 // ── Compare ─────────────────────────────────────────────
-// Показує зміну в % без тексту "вс" / "проти" — тільки стрілка і %
 function compareBadge(current, previous) {
   if (previous === 0) return current > 0 ? '<span class="badge up">▲</span>' : '';
   const pct = ((current - previous) / previous) * 100;
@@ -388,11 +417,50 @@ function renderCompare() {
   monthCompareEl.innerHTML = compareBadge(sumRange(monthStart, today), sumRange(prevMonthStart, prevMonthEnd));
 }
 
-// ── PDF ──────────────────────────────────────────────────
+// ── PDF — є дати у вибірці → звіт за той період, немає → за сьогодні
 exportPdfBtn.addEventListener('click', async () => {
   const oldText = exportPdfBtn.textContent;
   exportPdfBtn.textContent = 'Генерація...';
   exportPdfBtn.disabled = true;
+
+  const from = rangeFrom.value;
+  const to   = rangeTo.value;
+  const isRange = from || to;
+
+  let reportTrips, reportExpenses, reportTitle, reportPeriod, fname;
+
+  if (isRange) {
+    reportTrips = allTrips.filter((t) => {
+      if (t.kmOnly) return false;
+      if (from && t.dateKey < from) return false;
+      if (to   && t.dateKey > to)   return false;
+      return true;
+    });
+    reportExpenses = allExpenses.filter((x) => {
+      if (from && x.dateKey < from) return false;
+      if (to   && x.dateKey > to)   return false;
+      return true;
+    });
+    reportPeriod = (from ? formatDateUA(from) : '...') + ' — ' + (to ? formatDateUA(to) : '...');
+    reportTitle  = 'Звіт за період';
+    fname = 'zvit-' + (from || 'start') + '-' + (to || 'end') + '.pdf';
+  } else {
+    const today = todayKey();
+    reportTrips    = allTrips.filter((t) => t.dateKey === today && !t.kmOnly);
+    reportExpenses = allExpenses.filter((x) => x.dateKey === today);
+    reportPeriod   = formatDateUA(today);
+    reportTitle    = 'Звіт за день';
+    fname = 'zvit-' + today + '.pdf';
+  }
+
+  const total      = reportTrips.reduce((s, t) => s + t.total, 0);
+  const fare       = reportTrips.reduce((s, t) => s + t.amount, 0);
+  const tips       = reportTrips.reduce((s, t) => s + t.tip, 0);
+  const count      = reportTrips.length;
+  const expenses   = reportExpenses.reduce((s, x) => s + x.amount, 0);
+  const commission = (fare * commissionPercent) / 100;
+  const net        = total - commission - expenses;
+
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -402,40 +470,37 @@ exportPdfBtn.addEventListener('click', async () => {
     doc.addFileToVFS('Roboto-Regular.ttf', fontB64);
     doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
     doc.setFont('Roboto', 'normal');
-    doc.setFontSize(18); doc.text('Звіт по заробітку', 14, 20);
-    doc.setFontSize(10); doc.setTextColor(120,120,120);
-    doc.text('Дата: ' + new Date().toLocaleDateString('uk-UA'), 14, 30);
-    doc.setTextColor(0,0,0);
-    let y = 45;
+    doc.setFontSize(18); doc.text(reportTitle, 14, 20);
+    doc.setFontSize(10); doc.setTextColor(120, 120, 120);
+    doc.text('Період: ' + reportPeriod, 14, 30);
+    doc.text('Сформовано: ' + new Date().toLocaleDateString('uk-UA'), 14, 37);
+    doc.setTextColor(0, 0, 0);
+    let y = 50;
     const line = (label, value) => {
-      doc.setFontSize(10); doc.setTextColor(100,100,100); doc.text(label, 14, y);
-      doc.setTextColor(0,0,0); doc.setFontSize(12); doc.text(String(value), 100, y);
+      doc.setFontSize(10); doc.setTextColor(100, 100, 100); doc.text(label, 14, y);
+      doc.setTextColor(0, 0, 0); doc.setFontSize(12); doc.text(String(value), 110, y);
       y += 9;
     };
-    const sep = () => { doc.setDrawColor(220,220,220); doc.line(14,y,196,y); y += 6; };
-    line('Сьогодні зароблено:', todayTotalEl.textContent + ' грн (' + todayCountEl.textContent + ' поїздок)');
-    line('Чайові:', todayTipsEl.textContent + ' грн'); sep();
-    line('Витрати:', todayExpensesEl.textContent);
-    line('Комісія Uklon:', todayCommissionEl.textContent);
-    line('Чистими:', todayNetEl.textContent); sep();
-    line('Тиждень:', weekTotalEl.textContent + ' грн');
-    line('Місяць:', monthTotalEl.textContent + ' грн');
-    doc.save('zvit-' + todayKey() + '.pdf');
+    const sep = () => { doc.setDrawColor(220, 220, 220); doc.line(14, y, 196, y); y += 6; };
+    line('Зароблено:', total.toFixed(0) + ' грн (' + count + ' поїздок)');
+    line('Чайові:', tips.toFixed(0) + ' грн'); sep();
+    line('Витрати:', expenses.toFixed(0) + ' грн');
+    line('Комісія Uklon (' + commissionPercent + '%):', commission.toFixed(0) + ' грн'); sep();
+    line('Чистими:', net.toFixed(0) + ' грн');
+    doc.save(fname);
   } catch (err) {
     console.error(err);
     const txt = [
-      'Звіт', 'Дата: ' + new Date().toLocaleDateString('uk-UA'), '',
-      'Сьогодні: ' + todayTotalEl.textContent + ' грн (поїздок: ' + todayCountEl.textContent + ')',
-      'Чайові: ' + todayTipsEl.textContent + ' грн',
-      'Витрати: ' + todayExpensesEl.textContent,
-      'Комісія: ' + todayCommissionEl.textContent,
-      'Чистими: ' + todayNetEl.textContent, '',
-      'Тиждень: ' + weekTotalEl.textContent + ' грн',
-      'Місяць: ' + monthTotalEl.textContent + ' грн',
+      reportTitle, 'Період: ' + reportPeriod, '',
+      'Зароблено: ' + total.toFixed(0) + ' грн (' + count + ' поїздок)',
+      'Чайові: ' + tips.toFixed(0) + ' грн',
+      'Витрати: ' + expenses.toFixed(0) + ' грн',
+      'Комісія (' + commissionPercent + '%): ' + commission.toFixed(0) + ' грн',
+      'Чистими: ' + net.toFixed(0) + ' грн',
     ].join('\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob(['\uFEFF' + txt], { type: 'text/plain;charset=utf-8;' }));
-    a.download = 'zvit-' + todayKey() + '.txt';
+    a.download = fname.replace('.pdf', '.txt');
     a.click();
   } finally {
     exportPdfBtn.textContent = oldText;
