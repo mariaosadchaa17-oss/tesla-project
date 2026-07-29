@@ -12,7 +12,10 @@
 <div class="app">
   <header class="header">
     <h1>Заробіток</h1>
-    <span class="date" id="current-date"></span>
+    <div class="header-right">
+      <span class="date" id="current-date"></span>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Змінити тему">🌙</button>
+    </div>
   </header>
 
   <section class="charge-card">
@@ -77,11 +80,19 @@
   <section class="card">
     <h3>Чистий прибуток сьогодні</h3>
     <div class="card-row">
+      <span>Комісія Uklon, %</span>
+      <input type="number" id="commission-input" class="inline-input" min="0" max="100" step="1" value="15">
+    </div>
+    <div class="card-row">
+      <span>Комісія сьогодні</span>
+      <span class="card-value negative" id="today-commission">0 грн</span>
+    </div>
+    <div class="card-row">
       <span>Витрати сьогодні</span>
       <span class="card-value negative" id="today-expenses">0 грн</span>
     </div>
     <div class="card-row">
-      <span>Прибуток після витрат</span>
+      <span>Прибуток після комісії і витрат</span>
       <span class="card-value positive" id="today-net">0 грн</span>
     </div>
   </section>
@@ -95,6 +106,26 @@
     <div class="card-row" id="shift-rate-row" style="display:none">
       <span>Заробіток за годину</span>
       <span class="card-value" id="shift-rate">0 грн/год</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h3>Податки (ФОП 2 група)</h3>
+    <div class="card-row">
+      <span>Єдиний податок</span>
+      <span class="card-value" id="tax-unified">0 грн</span>
+    </div>
+    <div class="card-row">
+      <span>Військовий збір</span>
+      <span class="card-value" id="tax-military">0 грн</span>
+    </div>
+    <div class="card-row">
+      <span>Разом до 20 числа</span>
+      <span class="card-value negative" id="tax-total">0 грн</span>
+    </div>
+    <div class="card-row">
+      <span id="tax-status-label">Ще не сплачено за цей місяць</span>
+      <button id="tax-paid-btn" class="shift-btn" type="button">Позначити сплачено</button>
     </div>
   </section>
 
@@ -125,6 +156,32 @@
     </div>
   </section>
 
+  <section class="card">
+    <h3>Активність за часом і днем</h3>
+    <div id="heatmap"></div>
+  </section>
+
+  <section class="card">
+    <h3>Довільний період</h3>
+    <div class="expense-form">
+      <input type="date" id="range-from">
+      <input type="date" id="range-to">
+    </div>
+    <div class="card-row">
+      <span>Сума</span>
+      <span class="card-value" id="range-total">0 грн</span>
+    </div>
+    <div class="card-row">
+      <span>Поїздок</span>
+      <span class="card-value" id="range-count">0</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h3>Звіт</h3>
+    <button id="export-pdf-btn" class="shift-btn" type="button">Експортувати PDF</button>
+  </section>
+
   <details class="settings">
     <summary>Останні 7 днів</summary>
     <ul id="days-list" class="history-list"></ul>
@@ -133,6 +190,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="app.js"></script>
 <script>
 document.getElementById('current-date').textContent =
