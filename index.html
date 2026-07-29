@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Заробіток — облік поїздок</title>
+<link rel="stylesheet" href="style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <h1>Заробіток</h1>
+    <span class="date" id="current-date"></span>
+  </header>
+
+  <section class="charge-card">
+    <div class="charge-top">
+      <span class="charge-icon">⚡</span>
+      <span class="charge-total"><span id="today-total">0</span> грн</span>
+    </div>
+    <div class="charge-track">
+      <div class="charge-fill" id="charge-fill"></div>
+    </div>
+    <div class="charge-label" id="charge-label">0% від цілі</div>
+  </section>
+
+  <section class="stats-row">
+    <div class="stat">
+      <span class="stat-value" id="today-count">0</span>
+      <span class="stat-label">поїздок</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value" id="today-tips">0</span>
+      <span class="stat-label">чайових, грн</span>
+    </div>
+  </section>
+
+  <form id="trip-form" class="trip-form">
+    <div class="field">
+      <label for="amount">Сума поїздки</label>
+      <input type="number" id="amount" inputmode="decimal" placeholder="0" min="0" step="1">
+    </div>
+    <div class="field">
+      <label for="tip">Чайові</label>
+      <input type="number" id="tip" inputmode="decimal" placeholder="0" min="0" step="1">
+    </div>
+    <button type="submit" class="save-btn">Зберегти</button>
+  </form>
+
+  <section class="history">
+    <h2>Сьогодні</h2>
+    <ul id="history-list" class="history-list"></ul>
+  </section>
+
+  <details class="settings">
+    <summary>Ціль на день</summary>
+    <form id="goal-form" class="goal-form">
+      <input type="number" id="goal-input" min="0" step="100">
+      <button type="submit">Зберегти ціль</button>
+    </form>
+  </details>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+<script>
+document.getElementById('current-date').textContent =
+  new Date().toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+</script>
+</body>
+</html>
