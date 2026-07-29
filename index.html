@@ -20,7 +20,7 @@
       <span class="charge-icon">⚡</span>
       <span class="charge-total"><span id="today-total">0</span> грн</span>
     </div>
-    <div class="charge-label">Зароблено сьогодні</div>
+    <div class="charge-label">Зароблено сьогодні (брутто)</div>
   </section>
 
   <section class="stats-row">
@@ -45,6 +45,30 @@
     </div>
   </section>
 
+  <section class="card">
+    <h3>Чистий прибуток сьогодні</h3>
+    <div class="card-row">
+      <span>Витрати сьогодні</span>
+      <span class="card-value negative" id="today-expenses">0 грн</span>
+    </div>
+    <div class="card-row">
+      <span>Прибуток після витрат</span>
+      <span class="card-value positive" id="today-net">0 грн</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h3>Зміна</h3>
+    <div class="card-row">
+      <span id="shift-status">Зміну не розпочато</span>
+      <button id="shift-btn" class="shift-btn" type="button">Почати зміну</button>
+    </div>
+    <div class="card-row" id="shift-rate-row" style="display:none">
+      <span>Заробіток за годину</span>
+      <span class="card-value" id="shift-rate">0 грн/год</span>
+    </div>
+  </section>
+
   <form id="trip-form" class="trip-form">
     <div class="field">
       <label for="amount">Сума поїздки</label>
@@ -54,12 +78,51 @@
       <label for="tip">Чайові</label>
       <input type="number" id="tip" inputmode="decimal" placeholder="0" min="0" step="1">
     </div>
-    <button type="submit" class="save-btn">Зберегти</button>
+    <div class="field">
+      <label for="km">Пробіг, км (не обов'язково)</label>
+      <input type="number" id="km" inputmode="decimal" placeholder="0" min="0" step="1">
+    </div>
+    <div class="field payment-field">
+      <label>Оплата</label>
+      <div class="payment-options">
+        <label><input type="radio" name="payment" value="cash" checked> Готівка</label>
+        <label><input type="radio" name="payment" value="card"> Картка</label>
+      </div>
+    </div>
+    <button type="submit" class="save-btn" id="save-trip-btn">Зберегти</button>
+    <button type="button" class="cancel-edit-btn" id="cancel-edit-btn" style="display:none">Скасувати редагування</button>
   </form>
 
   <section class="history">
     <h2>Сьогодні</h2>
     <ul id="history-list" class="history-list"></ul>
+  </section>
+
+  <section class="card">
+    <h3>Витрати</h3>
+    <form id="expense-form" class="expense-form">
+      <select id="expense-category">
+        <option value="Паливо/зарядка">Паливо/зарядка</option>
+        <option value="Мийка">Мийка</option>
+        <option value="Парковка">Парковка</option>
+        <option value="Інше">Інше</option>
+      </select>
+      <input type="number" id="expense-amount" placeholder="Сума, грн" min="0" step="1">
+      <button type="submit">Додати витрату</button>
+    </form>
+    <ul id="expense-list" class="history-list"></ul>
+  </section>
+
+  <section class="card">
+    <h3>⚡ Економія на паливі</h3>
+    <div class="card-row">
+      <span>Пробіг всього</span>
+      <span class="card-value" id="tesla-km">0 км</span>
+    </div>
+    <div class="card-row">
+      <span>Заощаджено проти бензинового авто</span>
+      <span class="card-value positive" id="tesla-savings">0 грн</span>
+    </div>
   </section>
 
   <details class="settings">

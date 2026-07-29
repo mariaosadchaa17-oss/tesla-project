@@ -68,21 +68,6 @@ body {
   font-size: 32px;
 }
 
-.charge-track {
-  background: var(--surface-2);
-  border-radius: 999px;
-  height: 10px;
-  overflow: hidden;
-}
-
-.charge-fill {
-  background: var(--charge);
-  height: 100%;
-  width: 0%;
-  border-radius: 999px;
-  transition: width 0.4s ease;
-}
-
 .charge-label {
   margin-top: 8px;
   font-size: 13px;
@@ -92,7 +77,7 @@ body {
 .stats-row {
   display: flex;
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .stat {
@@ -114,6 +99,67 @@ body {
   font-size: 12px;
   color: var(--text-muted);
 }
+
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.card h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  padding: 6px 0;
+}
+
+.card-value {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.card-value.positive { color: var(--charge); }
+.card-value.negative { color: var(--tip); }
+
+.payment-options {
+  display: flex;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.payment-options label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.payment-options input { accent-color: var(--accent); }
+
+.shift-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.shift-btn.stop { background: var(--tip); color: #1a1400; }
 
 .trip-form {
   display: flex;
@@ -164,6 +210,17 @@ body {
 
 .save-btn:active { opacity: 0.85; }
 
+.cancel-edit-btn {
+  flex-basis: 100%;
+  background: var(--surface-2);
+  color: var(--text);
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
 .history h2 {
   font-size: 16px;
   font-weight: 500;
@@ -208,11 +265,11 @@ body {
   margin-right: 8px;
 }
 
-.delete-btn {
+.edit-btn, .delete-btn {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
   padding: 0 4px;
 }
@@ -230,26 +287,32 @@ body {
   font-size: 14px;
 }
 
-.goal-form {
+.expense-form {
   display: flex;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
 }
 
-.goal-form input {
+.expense-form select,
+.expense-form input {
   flex: 1;
-  background: var(--surface);
+  min-width: 100px;
+  background: var(--surface-2);
   border: 1px solid var(--surface-2);
   border-radius: 10px;
   padding: 10px;
   color: var(--text);
+  font-size: 14px;
 }
 
-.goal-form button {
-  background: var(--surface-2);
+.expense-form button {
+  flex-basis: 100%;
+  background: var(--tip);
+  color: #1a1400;
   border: none;
   border-radius: 10px;
-  padding: 10px 14px;
-  color: var(--text);
+  padding: 12px;
+  font-weight: 500;
   cursor: pointer;
 }
