@@ -65,7 +65,7 @@ let allExpenses = [];
 let commissionPercent = Number(localStorage.getItem('uklonCommission')) || 15;
 commissionInput.value = commissionPercent;
 
-// ── Логіка дат ───────────────────────────────────────────
+// ── Логіка дат ───────────────────────────────────
 function dateKeyOf(date) {
   const d = new Date(date);
   if (d.getHours() < 4) d.setDate(d.getDate() - 1);
@@ -74,35 +74,17 @@ function dateKeyOf(date) {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
-
 function todayKey() { return dateKeyOf(new Date()); }
-
 function startOfWeekKey() {
   const d = new Date();
   const day = d.getDay() === 0 ? 7 : d.getDay();
   d.setDate(d.getDate() - (day - 1));
   return dateKeyOf(d);
 }
+function startOfMonthKey() { const d = new Date(); d.setDate(1); return dateKeyOf(d); }
+function addDaysToKey(key, delta) { const d = new Date(key); d.setDate(d.getDate() + delta); return dateKeyOf(d); }
+function startOfMonthFromKey(key) { const d = new Date(key); d.setDate(1); return dateKeyOf(d); }
 
-function startOfMonthKey() {
-  const d = new Date();
-  d.setDate(1);
-  return dateKeyOf(d);
-}
-
-function addDaysToKey(key, delta) {
-  const d = new Date(key);
-  d.setDate(d.getDate() + delta);
-  return dateKeyOf(d);
-}
-
-function startOfMonthFromKey(key) {
-  const d = new Date(key);
-  d.setDate(1);
-  return dateKeyOf(d);
-}
-
-// Авто-скидання о 04:00 — якщо сторінка відкрита
 function scheduleNextDayReset() {
   const now = new Date();
   const next = new Date(now);
@@ -112,39 +94,33 @@ function scheduleNextDayReset() {
 }
 scheduleNextDayReset();
 
-// ── Форма поїздки ───────────────────────────────────
+// ── Тема ─────────────────────────────────────────
+function applyTheme(theme) {
+  // Клас на <html> — надійно працює в PWA на iOS/Android
+  document.documentElement.classList.toggle('light', theme === 'light');
+  // Також на body — для зворотної сумісності
+  document.body.classList.toggle('light', theme === 'light');
+  themeToggleBtn.textContent = theme === 'light' ? '🌙' : '☀️';
+}
+
+let currentTheme = localStorage.getItem('theme') || ((new Date().getHours() >= 7 && new Date().getHours() < 19) ? 'light' : 'dark');
+applyTheme(currentTheme);
+
+themeToggleBtn.addEventListener('click', () => {
+  currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+  localStorage.setItem('theme', currentTheme);
+  applyTheme(currentTheme);
+});
+
+// ── Форма поїздки ───────────────────────────────
 function getPaymentValue() {
   const checked = form.querySelector('input[name="payment"]:checked');
   return checked ? checked.value : 'cash';
 }
-
 function setPaymentValue(v) {
   const el = form.querySelector('input[name="payment"][value="' + v + '"]');
   if (el) el.checked = true;
 }
-
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const amount = Number(amountInput.value) || 0;
-  const tip = Number(tipInput.value) || 0;
-  if (amount <= 0 && tip <= 0) return;
-  await tripsRef.add({
-    amount, tip, total: amount + tip,
-    paymentMethod: getPaymentValue(),
-    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    dateKey: dateKeyOf(new Date()),
-  });
-  if (editingId) {
-    await tripsRef.doc(editingId).update({
-      amount, tip, total: amount + tip,
-      paymentMethod: getPaymentValue(),
-    });
-    stopEditing();
-  }
-  amountInput.value = '';
-  tipInput.value = '';
-  amountInput.focus();
-});
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -166,7 +142,7 @@ form.addEventListener('submit', async (e) => {
   amountInput.value = '';
   tipInput.value = '';
   amountInput.focus();
-}, { once: false });
+});
 
 cancelEditBtn.addEventListener('click', stopEditing);
 
@@ -179,7 +155,6 @@ function startEditing(t) {
   cancelEditBtn.style.display = 'block';
   amountInput.focus();
 }
-
 function stopEditing() {
   editingId = null;
   saveBtn.innerHTML = '💾 Зберегти поїздку';
@@ -196,7 +171,7 @@ document.querySelectorAll('.quick-tip-btn').forEach((btn) => {
   btn.addEventListener('click', () => { tipInput.value = btn.dataset.val; });
 });
 
-// ── Голосовий ввід ────────────────────────────────────
+// ── Голосовий ввід ──────────────────────────────
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (SpeechRecognitionCtor && micBtn) {
   const recognition = new SpeechRecognitionCtor();
@@ -207,11 +182,9 @@ if (SpeechRecognitionCtor && micBtn) {
     const match = e.results[0][0].transcript.replace(',', '.').match(/\d+(\.\d+)?/);
     if (match) amountInput.value = match[0];
   };
-} else if (micBtn) {
-  micBtn.style.display = 'none';
-}
+} else if (micBtn) { micBtn.style.display = 'none'; }
 
-// ── Firebase onSnapshot ─────────────────────────────────
+// ── Firebase ───────────────────────────────────────
 tripsRef.orderBy('createdAt', 'desc').limit(1000).onSnapshot((snapshot) => {
   allTrips = snapshot.docs.map((doc) => {
     const data = doc.data();
@@ -245,7 +218,6 @@ expenseForm.addEventListener('submit', async (e) => {
   expenseAmount.value = '';
 });
 
-// ── Пробіг ───────────────────────────────────────────────
 if (saveKmBtn) {
   saveKmBtn.addEventListener('click', async () => {
     const km = Number(kmInput.value) || 0;
@@ -262,7 +234,7 @@ if (saveKmBtn) {
   });
 }
 
-// ── Render ─────────────────────────────────────────────────
+// ── Render ─────────────────────────────────────────────
 function sumRange(from, to) {
   return allTrips.filter((t) => !t.kmOnly && t.dateKey >= from && t.dateKey <= to).reduce((s, t) => s + t.total, 0);
 }
@@ -287,7 +259,7 @@ function render() {
   todayCountEl.textContent = todayTrips.length;
   weekTotalEl.textContent  = weekTrips.reduce((s, t) => s + t.total, 0).toFixed(0);
   monthTotalEl.textContent = monthTrips.reduce((s, t) => s + t.total, 0).toFixed(0);
-  todayExpensesEl.textContent  = todayExpensesTotal.toFixed(0) + ' грн';
+  todayExpensesEl.textContent   = todayExpensesTotal.toFixed(0) + ' грн';
   todayCommissionEl.textContent = '= ' + todayCommission.toFixed(0) + ' грн';
   todayNetEl.textContent = (todayTotal - todayCommission - todayExpensesTotal).toFixed(0) + ' грн';
 
@@ -331,7 +303,6 @@ function render() {
   renderCompare();
 }
 
-// ── Tesla ──────────────────────────────────────────────────
 function renderTesla() {
   const totalKm = allTrips.reduce((s, t) => s + (t.km || 0), 0);
   const gasCost = (totalKm / 100) * GAS_CONSUMPTION_PER_100KM * GAS_PRICE_PER_LITER;
@@ -340,7 +311,6 @@ function renderTesla() {
   teslaSavingsEl.textContent = Math.max(0, gasCost - evCost).toFixed(0) + ' грн';
 }
 
-// ── Heatmap ───────────────────────────────────────────────
 const DOW_LABELS    = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
 const BUCKET_LABELS = ['Ранок', 'День', 'Вечір'];
 
@@ -356,8 +326,7 @@ function renderHeatmap() {
   allTrips.forEach((t) => {
     if (!t.createdAt || t.kmOnly) return;
     const d = t.createdAt.toDate();
-    let dow = d.getDay();
-    dow = dow === 0 ? 6 : dow - 1;
+    let dow = d.getDay(); dow = dow === 0 ? 6 : dow - 1;
     const bucket = getTimeBucket(d.getHours());
     if (bucket === null) return;
     grid[dow][bucket] += t.total;
@@ -379,10 +348,8 @@ function renderHeatmap() {
   heatmapEl.innerHTML = html;
 }
 
-// ── Range ────────────────────────────────────────────────
 function renderRange() {
-  const from = rangeFrom.value;
-  const to   = rangeTo.value;
+  const from = rangeFrom.value, to = rangeTo.value;
   if (!from && !to) { rangeTotalEl.textContent = '0 грн'; rangeCountEl.textContent = '0'; return; }
   const filtered = allTrips.filter((t) => {
     if (t.kmOnly) return false;
@@ -396,28 +363,21 @@ function renderRange() {
 rangeFrom.addEventListener('change', renderRange);
 rangeTo.addEventListener('change', renderRange);
 
-// ── Compare ──────────────────────────────────────────────
 function compareBadge(current, previous) {
   if (previous === 0) return current > 0 ? '<span class="badge up">▲</span>' : '<span class="badge">—</span>';
   const pct = ((current - previous) / previous) * 100;
-  const cls  = pct >= 0 ? 'up' : 'down';
-  const sign = pct >= 0 ? '▲' : '▼';
-  return `<span class="badge ${cls}">${sign}${Math.abs(pct).toFixed(0)}%</span>`;
+  return `<span class="badge ${pct >= 0 ? 'up' : 'down'}">${pct >= 0 ? '▲' : '▼'}${Math.abs(pct).toFixed(0)}%</span>`;
 }
 
 function renderCompare() {
-  const weekStart     = startOfWeekKey();
-  const today         = todayKey();
-  const prevWeekEnd   = addDaysToKey(weekStart, -1);
-  const prevWeekStart = addDaysToKey(weekStart, -7);
-  const monthStart    = startOfMonthKey();
-  const prevMonthEnd   = addDaysToKey(monthStart, -1);
-  const prevMonthStart = startOfMonthFromKey(prevMonthEnd);
+  const weekStart = startOfWeekKey(), today = todayKey();
+  const prevWeekEnd = addDaysToKey(weekStart, -1), prevWeekStart = addDaysToKey(weekStart, -7);
+  const monthStart = startOfMonthKey();
+  const prevMonthEnd = addDaysToKey(monthStart, -1), prevMonthStart = startOfMonthFromKey(prevMonthEnd);
   weekCompareEl.innerHTML  = compareBadge(sumRange(weekStart, today), sumRange(prevWeekStart, prevWeekEnd));
   monthCompareEl.innerHTML = compareBadge(sumRange(monthStart, today), sumRange(prevMonthStart, prevMonthEnd));
 }
 
-// ── PDF ───────────────────────────────────────────────────
 exportPdfBtn.addEventListener('click', async () => {
   const oldText = exportPdfBtn.textContent;
   exportPdfBtn.textContent = 'Генерація...';
@@ -431,22 +391,20 @@ exportPdfBtn.addEventListener('click', async () => {
     doc.addFileToVFS('Roboto-Regular.ttf', fontB64);
     doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
     doc.setFont('Roboto', 'normal');
-    doc.setFontSize(18);
-    doc.text('Звіт по заробітку', 14, 20);
-    doc.setFontSize(10); doc.setTextColor(120, 120, 120);
-    doc.text('Дата: ' + new Date().toLocaleDateString('uk-UA'), 14, 30);
-    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(18); doc.text('Звіт по заробітку', 14, 20);
+    doc.setFontSize(10); doc.setTextColor(120,120,120); doc.text('Дата: ' + new Date().toLocaleDateString('uk-UA'), 14, 30);
+    doc.setTextColor(0,0,0);
     let y = 45;
     const line = (label, value) => { doc.setFontSize(10); doc.setTextColor(100,100,100); doc.text(label,14,y); doc.setTextColor(0,0,0); doc.setFontSize(12); doc.text(String(value),100,y); y+=9; };
     const sep = () => { doc.setDrawColor(220,220,220); doc.line(14,y,196,y); y+=6; };
-    line('Сьогодні зароблено:', todayTotalEl.textContent + ' грн (' + todayCountEl.textContent + ' поїздок)');
-    line('Чайові сьогодні:', todayTipsEl.textContent + ' грн'); sep();
-    line('Витрати сьогодні:', todayExpensesEl.textContent);
+    line('Сьогодні зароблено:', todayTotalEl.textContent+' грн ('+todayCountEl.textContent+' поїздок)');
+    line('Чайові:', todayTipsEl.textContent+' грн'); sep();
+    line('Витрати:', todayExpensesEl.textContent);
     line('Комісія Uklon:', todayCommissionEl.textContent);
-    line('Чистими сьогодні:', todayNetEl.textContent); sep();
-    line('Загалом за тиждень:', weekTotalEl.textContent + ' грн');
-    line('Загалом за місяць:', monthTotalEl.textContent + ' грн');
-    doc.save('zvit-' + todayKey() + '.pdf');
+    line('Чистими:', todayNetEl.textContent); sep();
+    line('Тиждень:', weekTotalEl.textContent+' грн');
+    line('Місяць:', monthTotalEl.textContent+' грн');
+    doc.save('zvit-'+todayKey()+'.pdf');
   } catch (err) {
     console.error(err);
     const txt = ['Звіт','Дата: '+new Date().toLocaleDateString('uk-UA'),'',
@@ -460,25 +418,9 @@ exportPdfBtn.addEventListener('click', async () => {
     ].join('\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob(['\uFEFF'+txt],{type:'text/plain;charset=utf-8;'}));
-    a.download = 'zvit-'+todayKey()+'.txt';
-    a.click();
+    a.download = 'zvit-'+todayKey()+'.txt'; a.click();
   } finally {
     exportPdfBtn.textContent = oldText;
     exportPdfBtn.disabled = false;
   }
-});
-
-// ── Тема ───────────────────────────────────────────────────
-function applyTheme(theme) {
-  document.body.classList.toggle('light', theme === 'light');
-  themeToggleBtn.textContent = theme === 'light' ? '🌙' : '☀️';
-}
-
-let currentTheme = localStorage.getItem('theme') || ((new Date().getHours() >= 7 && new Date().getHours() < 19) ? 'light' : 'dark');
-applyTheme(currentTheme);
-
-themeToggleBtn.addEventListener('click', () => {
-  currentTheme = currentTheme === 'light' ? 'dark' : 'light';
-  localStorage.setItem('theme', currentTheme);
-  applyTheme(currentTheme);
 });
